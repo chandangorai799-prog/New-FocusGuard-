@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient id="innerShield" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <linearGradient id="boltGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#3b82f6" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+  <rect width="192" height="192" rx="44" fill="url(#bgGrad)"/>
+  <g filter="url(#glow)">
+    <path d="M96 28L144 50V96C144 130 96 164 96 164C96 164 48 130 48 96V50L96 28Z" fill="url(#shieldGrad)"/>
+    <path d="M96 46L130 62V96C130 120 96 146 96 146C96 146 62 120 62 96V62L96 46Z" fill="url(#innerShield)" opacity="0.9"/>
+    <!-- Bolt / Focus spark symbol -->
+    <path d="M92 68L80 94H96L88 122L116 88H100L108 68H92Z" fill="url(#boltGrad)"/>
+  </g>
+</svg>

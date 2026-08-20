@@ -213,6 +213,22 @@ export interface ChatMessage {
   isError?: boolean;
 }
 
+export type ThemeMode = 'dark' | 'light' | 'midnight' | 'emerald' | 'sunset' | 'ocean' | 'amethyst' | 'nordic' | 'oled' | 'custom' | string;
+
+export interface AppThemeConfig {
+  id: string;
+  name: string;
+  category: 'dark' | 'light' | 'oled';
+  accentColor: string; // hex
+  secondaryColor: string;
+  bgGradient: string;
+  cardBg: string;
+  borderColor: string;
+  textPrimary: string;
+  textSecondary: string;
+  glowColor: string;
+}
+
 export interface UserProfile {
   name: string;
   avatar: string;
@@ -222,7 +238,8 @@ export interface UserProfile {
   preferredStudyTime: StudyTimePreference;
   primarySubject: string;
   onboardingCompleted: boolean;
-  theme: 'dark' | 'light' | 'system';
+  theme: ThemeMode;
+  customThemeColor?: string;
   streakCount: number;
   bestStreak: number;
   lastActiveDate: string;

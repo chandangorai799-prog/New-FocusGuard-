@@ -56,36 +56,20 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               onClick={() => handleSelect(tab.id)}
               className={`relative flex flex-col items-center justify-center py-1.5 px-2.5 rounded-2xl transition-all duration-200 ${
                 isActive
-                  ? tab.id === 'planner'
-                    ? 'text-indigo-400 font-semibold scale-105'
-                    : tab.id === 'assistant'
-                    ? 'text-sky-400 font-semibold scale-105'
-                    : 'text-blue-400 font-semibold scale-105'
+                  ? 'text-blue-400 font-semibold scale-105'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               {isActive && (
                 <span
-                  className={`absolute -top-1 w-8 h-1 rounded-full shadow-sm ${
-                    tab.id === 'planner'
-                      ? 'bg-indigo-500 shadow-indigo-500/50'
-                      : tab.id === 'assistant'
-                      ? 'bg-sky-500 shadow-sky-500/50'
-                      : 'bg-blue-500 shadow-blue-500/50'
-                  }`}
+                  className="absolute -top-1 w-8 h-1 rounded-full shadow-sm bg-blue-500 shadow-blue-500/50"
                 />
               )}
 
               <div className="relative">
                 <Icon
                   className={`w-5 h-5 transition-transform duration-200 ${
-                    isActive
-                      ? tab.id === 'planner'
-                        ? 'scale-110 text-indigo-400'
-                        : tab.id === 'assistant'
-                        ? 'scale-110 text-sky-400'
-                        : 'scale-110 text-blue-400'
-                      : ''
+                    isActive ? 'scale-110 text-blue-400' : ''
                   }`}
                 />
                 {isFocusTab && isFocusActive && (

@@ -3,11 +3,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import { NavigationTab, UserProfile, TaskItem, FocusSessionRecord, StudyPlan, FocusSettings, PomodoroSettings, ChatMessage, AppNotification } from './types';
 import { StorageService } from './services/storage';
 import { AudioService } from './services/audioService';
+import { ThemeService } from './services/themeService';
+import { useTheme } from './context/ThemeContext';
 import { Header } from './components/common/Header';
 import { BottomNav } from './components/common/BottomNav';
 import { OnboardingModal } from './components/common/OnboardingModal';
 import { DistractionShieldModal } from './components/common/DistractionShieldModal';
 import { NotificationsModal } from './components/common/NotificationsModal';
+import { PwaInstallBanner } from './components/common/PwaInstallBanner';
+import { ThemeCustomizerModal } from './components/common/ThemeCustomizerModal';
 
 // Views
 import { DashboardView } from './components/dashboard/DashboardView';
@@ -22,6 +26,7 @@ import { AppBlockerScreen } from './components/focus/AppBlockerScreen';
 import { BlockingOverlay } from './components/focus/BlockingOverlay';
 
 export default function App() {
+  const { currentTheme, customAccent, isLight, setTheme } = useTheme();
   const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
   const [profile, setProfile] = useState<UserProfile>(StorageService.getProfile());
   const [tasks, setTasks] = useState<TaskItem[]>(StorageService.getTasks());
@@ -36,8 +41,20 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState<boolean>(!profile.onboardingCompleted);
   const [showShieldModal, setShowShieldModal] = useState<boolean>(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
+  const [showThemeModal, setShowThemeModal] = useState<boolean>(false);
   const [isFocusSessionActive, setIsFocusSessionActive] = useState<boolean>(false);
   const [focusInitialDuration, setFocusInitialDuration] = useState<number | undefined>(undefined);
+
+  // Sync profile when theme changes in context
+  useEffect(() => {
+    if (profile.theme !== currentTheme || profile.customThemeColor !== customAccent) {
+      setProfile((prev) => ({
+        ...prev,
+        theme: currentTheme,
+        customThemeColor: customAccent,
+      }));
+    }
+  }, [currentTheme, customAccent]);
 
   // Sub-tabs for bottom nav mapping
   const activeBottomTab: 'dashboard' | 'focus' | 'planner' | 'assistant' | 'tasks' | 'profile' =
@@ -56,6 +73,17 @@ export default function App() {
   const handleTabChange = (tab: NavigationTab) => {
     AudioService.playTap();
     setCurrentTab(tab);
+  };
+
+  // Theme selection handler
+  const handleSelectTheme = (themeId: string, accent?: string) => {
+    setTheme(themeId, accent);
+    const updated: UserProfile = {
+      ...profile,
+      theme: themeId,
+      customThemeColor: accent || customAccent,
+    };
+    setProfile(updated);
   };
 
   // Launch Focus Mode from Dashboard or Task
@@ -164,9 +192,12 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col items-center font-sans selection:bg-blue-500 selection:text-white antialiased">
+    <div className="min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col items-center font-sans antialiased selection:bg-blue-500 selection:text-white">
       {/* Responsive Centered Application Canvas */}
       <div className="w-full max-w-4xl lg:max-w-5xl flex-1 flex flex-col relative bg-slate-950 min-h-screen shadow-2xl border-x border-slate-900/80">
+        {/* PWA Install Banner */}
+        <PwaInstallBanner />
+
         {/* Android Top Header */}
         <Header
           profile={profile}
@@ -180,6 +211,10 @@ export default function App() {
           onOpenNotifications={() => {
             AudioService.playTap();
             setShowNotificationsModal(true);
+          }}
+          onOpenThemeModal={() => {
+            AudioService.playTap();
+            setShowThemeModal(true);
           }}
           onOpenProfile={() => handleTabChange('profile')}
           isFocusActive={isFocusSessionActive}
@@ -257,6 +292,8 @@ export default function App() {
                   onStartPomodoro={handleStartPomodoro}
                   onNavigateToTab={(tab) => handleTabChange(tab)}
                   onToggleTask={handleToggleTask}
+                  onOpenThemeModal={() => setShowThemeModal(true)}
+                  onSelectTheme={handleSelectTheme}
                 />
               )}
 
@@ -332,6 +369,7 @@ export default function App() {
                   onResetAllData={handleResetAllData}
                   onRestartOnboarding={() => setShowOnboarding(true)}
                   onOpenShield={() => handleTabChange('appBlocker')}
+                  onOpenThemeModal={() => setShowThemeModal(true)}
                 />
               )}
 
@@ -383,6 +421,15 @@ export default function App() {
           onClose={() => setShowNotificationsModal(false)}
           notifications={notifications}
           onRefresh={handleRefreshNotifications}
+        />
+
+        {/* Custom Theme Studio Modal */}
+        <ThemeCustomizerModal
+          isOpen={showThemeModal}
+          onClose={() => setShowThemeModal(false)}
+          currentThemeId={profile.theme || 'midnight'}
+          customAccentColor={profile.customThemeColor}
+          onSelectTheme={handleSelectTheme}
         />
       </div>
     </div>

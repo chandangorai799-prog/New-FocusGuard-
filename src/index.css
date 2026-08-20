@@ -15,5 +15,151 @@
     width: 100%;
     margin: 0;
     padding: 0;
+    background-color: #020617;
+    color: #f8fafc;
   }
+}
+
+/* =========================================================================
+   CORE THEME ACCENTS & CSS VARIABLES (ACCENT SYSTEM ONLY)
+   ========================================================================= */
+
+:root,
+[data-theme="midnight"],
+body[data-theme="midnight"] {
+  --primary-accent: #3b82f6;
+  --primary-accent-hover: #2563eb;
+  --primary-glow: rgba(59, 130, 246, 0.25);
+  --theme-badge-bg: rgba(59, 130, 246, 0.15);
+  --theme-badge-border: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="emerald"],
+body[data-theme="emerald"] {
+  --primary-accent: #10b981;
+  --primary-accent-hover: #059669;
+  --primary-glow: rgba(16, 185, 129, 0.3);
+  --theme-badge-bg: rgba(16, 185, 129, 0.15);
+  --theme-badge-border: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="sunset"],
+body[data-theme="sunset"] {
+  --primary-accent: #f59e0b;
+  --primary-accent-hover: #d97706;
+  --primary-glow: rgba(245, 158, 11, 0.3);
+  --theme-badge-bg: rgba(245, 158, 11, 0.15);
+  --theme-badge-border: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="ocean"],
+body[data-theme="ocean"] {
+  --primary-accent: #06b6d4;
+  --primary-accent-hover: #0891b2;
+  --primary-glow: rgba(6, 182, 212, 0.3);
+  --theme-badge-bg: rgba(6, 182, 212, 0.15);
+  --theme-badge-border: rgba(6, 182, 212, 0.3);
+}
+
+[data-theme="amethyst"],
+body[data-theme="amethyst"] {
+  --primary-accent: #a855f7;
+  --primary-accent-hover: #9333ea;
+  --primary-glow: rgba(168, 85, 247, 0.3);
+  --theme-badge-bg: rgba(168, 85, 247, 0.15);
+  --theme-badge-border: rgba(168, 85, 247, 0.3);
+}
+
+[data-theme="oled"],
+body[data-theme="oled"] {
+  --primary-accent: #60a5fa;
+  --primary-accent-hover: #3b82f6;
+  --primary-glow: rgba(255, 255, 255, 0.15);
+  --theme-badge-bg: rgba(96, 165, 250, 0.15);
+  --theme-badge-border: rgba(96, 165, 250, 0.3);
+}
+
+[data-theme="nordic"],
+body[data-theme="nordic"] {
+  --primary-accent: #38bdf8;
+  --primary-accent-hover: #0284c7;
+  --primary-glow: rgba(56, 189, 248, 0.25);
+  --theme-badge-bg: rgba(56, 189, 248, 0.15);
+  --theme-badge-border: rgba(56, 189, 248, 0.3);
+}
+
+/* =========================================================================
+   DYNAMIC ACCENT OVERRIDES (ONLY APPLIES TO ACCENT ELEMENTS)
+   Main application background and card backgrounds remain 100% untouched!
+   ========================================================================= */
+
+/* Primary Action Buttons & Accent Elements */
+[data-theme] .bg-blue-600,
+[data-theme] .bg-blue-500 {
+  background-color: var(--primary-accent) !important;
+}
+
+[data-theme] .hover\:bg-blue-500:hover,
+[data-theme] .hover\:bg-blue-600:hover {
+  background-color: var(--primary-accent-hover, var(--primary-accent)) !important;
+  filter: brightness(1.08);
+}
+
+/* Dynamic Accent Text Colors */
+[data-theme] .text-blue-400,
+[data-theme] .text-blue-500,
+[data-theme] .text-blue-300 {
+  color: var(--primary-accent) !important;
+}
+
+/* Accent Borders & Active Rings */
+[data-theme] .border-blue-500,
+[data-theme] .border-blue-600,
+[data-theme] .border-blue-400 {
+  border-color: var(--primary-accent) !important;
+}
+
+[data-theme] .ring-blue-500,
+[data-theme] .ring-blue-400 {
+  --tw-ring-color: var(--primary-accent) !important;
+}
+
+[data-theme] .focus\:border-blue-500:focus,
+[data-theme] .focus\:border-blue-400:focus {
+  border-color: var(--primary-accent) !important;
+}
+
+/* Badges / Pill Highlights */
+[data-theme] .bg-blue-500\/20,
+[data-theme] .bg-blue-600\/20,
+[data-theme] .bg-blue-500\/10,
+[data-theme] .bg-blue-500\/15 {
+  background-color: var(--theme-badge-bg) !important;
+  border-color: var(--theme-badge-border) !important;
+}
+
+/* Dynamic Accent Glow Shadows */
+[data-theme] .shadow-blue-600\/30,
+[data-theme] .shadow-blue-500\/20,
+[data-theme] .shadow-blue-500\/30 {
+  box-shadow: 0 10px 15px -3px var(--primary-glow), 0 4px 6px -4px var(--primary-glow) !important;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #020617;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-accent, #3b82f6);
 }

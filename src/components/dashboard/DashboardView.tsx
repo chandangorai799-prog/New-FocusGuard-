@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Flame,
@@ -16,9 +16,12 @@ import {
   Calendar,
   AlertCircle,
   BookOpen,
+  Palette,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { UserProfile, TaskItem, FocusSessionRecord, StudyPlan, NavigationTab } from '../../types';
 import { AudioService } from '../../services/audioService';
+import { THEME_PRESETS } from '../../services/themeService';
 
 interface DashboardViewProps {
   profile: UserProfile;
@@ -29,6 +32,8 @@ interface DashboardViewProps {
   onStartPomodoro: () => void;
   onNavigateToTab: (tab: NavigationTab) => void;
   onToggleTask: (taskId: string) => void;
+  onOpenThemeModal?: () => void;
+  onSelectTheme?: (themeId: string, customAccent?: string) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -40,6 +45,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onStartPomodoro,
   onNavigateToTab,
   onToggleTask,
+  onOpenThemeModal,
+  onSelectTheme,
 }) => {
   // Time-aware greeting
   const getGreeting = () => {
@@ -142,6 +149,74 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="text-[10px] text-slate-500 block">Goal: {profile.dailyStudyTargetMinutes / 60}h/day</span>
             </div>
           </div>
+        </div>
+      </motion.div>
+
+      {/* Theme Quick Switcher & Customizer Bar */}
+      <motion.div
+        id="dashboard-theme-bar"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full p-3 bg-slate-900/80 border border-slate-800/90 rounded-2xl flex flex-wrap items-center justify-between gap-2.5 shadow-md backdrop-blur-sm"
+      >
+        <div className="flex items-center space-x-2.5 min-w-0">
+          <div className="w-7 h-7 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
+            <Palette className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-white">App Theme</span>
+              <span className="text-[10px] font-semibold text-blue-400 capitalize px-1.5 py-0.2 bg-blue-950 border border-blue-800/50 rounded-full">
+                {profile.theme || 'Midnight'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Theme Presets Swatches */}
+        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar max-w-full">
+          {THEME_PRESETS.map((preset) => {
+            const isActive = (profile.theme || 'midnight') === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => {
+                  AudioService.playTap();
+                  if (onSelectTheme) {
+                    onSelectTheme(preset.id, preset.accentColor);
+                  }
+                }}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold flex items-center space-x-1.5 transition-all shrink-0 cursor-pointer ${
+                  isActive
+                    ? 'bg-slate-800 text-white border border-blue-500 shadow-sm ring-1 ring-blue-500/30'
+                    : 'bg-slate-950/60 text-slate-400 hover:text-slate-200 border border-slate-800/80 hover:bg-slate-800/40'
+                }`}
+                title={`Switch to ${preset.name}`}
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-xs"
+                  style={{ backgroundColor: preset.accentColor }}
+                />
+                <span className="truncate">{preset.name.split(' ')[0]}</span>
+              </button>
+            );
+          })}
+
+          {/* Open Full Customizer Modal Button */}
+          {onOpenThemeModal && (
+            <button
+              type="button"
+              onClick={() => {
+                AudioService.playTap();
+                onOpenThemeModal();
+              }}
+              className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-sm flex items-center space-x-1 shrink-0 transition active:scale-95 cursor-pointer ml-1"
+            >
+              <SlidersHorizontal className="w-3 h-3" />
+              <span>Custom...</span>
+            </button>
+          )}
         </div>
       </motion.div>
 

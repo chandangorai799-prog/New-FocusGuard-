@@ -1112,19 +1112,94 @@ export const StorageService = {
   },
 
   resetAllData(): void {
-    localStorage.clear();
+    this.resetAllUserData();
   },
 
-  resetToDefaults(): void {
-    localStorage.clear();
-    this.getProfile();
-    this.getTasks();
-    this.getSessions();
-    this.getExams();
-    this.getQuizResults();
-    this.getPomodoroSettings();
-    this.getFocusSettings();
-    this.getChatMessages();
-    this.getNotifications();
+  resetAllUserData(): {
+    profile: UserProfile;
+    tasks: TaskItem[];
+    sessions: FocusSessionRecord[];
+    studyPlans: StudyPlan[];
+    focusSettings: FocusSettings;
+    pomodoroSettings: PomodoroSettings;
+    chatMessages: ChatMessage[];
+    notifications: AppNotification[];
+    exams: ExamItem[];
+    quizResults: QuizResult[];
+    blockedApps: BlockedApp[];
+  } {
+    // 1. Safely remove each user storage key individually
+    Object.values(STORAGE_KEYS).forEach((key) => {
+      try {
+        localStorage.removeItem(key);
+      } catch (err) {
+        console.warn(`Failed to remove key ${key}:`, err);
+      }
+    });
+
+    // 2. Clone fresh pristine default objects
+    const freshProfile: UserProfile = JSON.parse(JSON.stringify(DEFAULT_PROFILE));
+    const freshTasks: TaskItem[] = JSON.parse(JSON.stringify(INITIAL_TASKS));
+    const freshSessions: FocusSessionRecord[] = [];
+    const freshStudyPlans: StudyPlan[] = [];
+    const freshPomodoroSettings: PomodoroSettings = JSON.parse(JSON.stringify(DEFAULT_POMODORO_SETTINGS));
+    const freshFocusSettings: FocusSettings = JSON.parse(JSON.stringify(DEFAULT_FOCUS_SETTINGS));
+    const freshExams: ExamItem[] = JSON.parse(JSON.stringify(INITIAL_EXAMS));
+    const freshQuizResults: QuizResult[] = JSON.parse(JSON.stringify(INITIAL_QUIZ_RESULTS));
+    const freshBlockedApps: BlockedApp[] = JSON.parse(JSON.stringify(DEFAULT_BLOCKED_APPS));
+    const freshNotifications: AppNotification[] = [
+      {
+        id: 'notif-reset-' + Date.now(),
+        title: '✨ FocusGuard Ready to Study',
+        message: 'Your study dashboard, focus shield, and tasks have been reset to pristine default values.',
+        timestamp: new Date().toISOString(),
+        type: 'system',
+        read: false,
+      },
+    ];
+    const freshChatMessages: ChatMessage[] = [
+      {
+        id: 'msg-welcome',
+        sender: 'assistant',
+        timestamp: new Date().toISOString(),
+        mode: 'chat',
+        text: `👋 **Welcome to FocusGuard AI Assistant!**\n\nI am your personalized study tutor and exam coach. How can I help you today?\n\n**Quick Actions:**\n- 🎯 **Generate Practice Quiz / MCQs**\n- 📝 **Summarize Notes & Lectures**\n- 💡 **Explain Difficult Topics in Simple Terms**\n- 🗂️ **Generate Flashcards**\n- 📋 **Create High-Yield Revision Notes**\n\nChoose an action below or type any question to start!`,
+      },
+    ];
+
+    // 3. Write clean defaults into localStorage safely
+    try {
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(freshProfile));
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(freshTasks));
+      localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(freshSessions));
+      localStorage.setItem(STORAGE_KEYS.STUDY_PLANS, JSON.stringify(freshStudyPlans));
+      localStorage.setItem(STORAGE_KEYS.POMODORO_SETTINGS, JSON.stringify(freshPomodoroSettings));
+      localStorage.setItem(STORAGE_KEYS.FOCUS_SETTINGS, JSON.stringify(freshFocusSettings));
+      localStorage.setItem(STORAGE_KEYS.EXAMS, JSON.stringify(freshExams));
+      localStorage.setItem(STORAGE_KEYS.QUIZ_RESULTS, JSON.stringify(freshQuizResults));
+      localStorage.setItem(STORAGE_KEYS.BLOCKED_APPS, JSON.stringify(freshBlockedApps));
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(freshNotifications));
+      localStorage.setItem(STORAGE_KEYS.CHAT_MESSAGES, JSON.stringify(freshChatMessages));
+    } catch (e) {
+      console.error('Failed to initialize fresh defaults into storage:', e);
+    }
+
+    return {
+      profile: freshProfile,
+      tasks: freshTasks,
+      sessions: freshSessions,
+      studyPlans: freshStudyPlans,
+      focusSettings: freshFocusSettings,
+      pomodoroSettings: freshPomodoroSettings,
+      chatMessages: freshChatMessages,
+      notifications: freshNotifications,
+      exams: freshExams,
+      quizResults: freshQuizResults,
+      blockedApps: freshBlockedApps,
+    };
+  },
+
+  resetToDefaults() {
+    return this.resetAllUserData();
   },
 };

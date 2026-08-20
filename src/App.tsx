@@ -181,14 +181,38 @@ export default function App() {
   };
 
   const handleResetAllData = () => {
-    StorageService.resetToDefaults();
-    setProfile(StorageService.getProfile());
-    setTasks(StorageService.getTasks());
-    setSessions(StorageService.getSessions());
-    setStudyPlans(StorageService.getStudyPlans());
-    setChatMessages(StorageService.getChatMessages());
-    setNotifications(StorageService.getNotifications());
-    alert('FocusGuard reset to fresh study blueprint defaults!');
+    try {
+      // 1. Reset all underlying storage and timers
+      AudioService.stopAmbient();
+      AudioService.playSuccess();
+      AndroidBlockerService.resetSessionToIdle();
+      const freshData = StorageService.resetAllUserData();
+
+      // 2. Immediately update all React state variables
+      setProfile(freshData.profile);
+      setTasks(freshData.tasks);
+      setSessions(freshData.sessions);
+      setStudyPlans(freshData.studyPlans);
+      setFocusSettings(freshData.focusSettings);
+      setPomodoroSettings(freshData.pomodoroSettings);
+      setChatMessages(freshData.chatMessages);
+      setNotifications(freshData.notifications);
+      setIsFocusSessionActive(false);
+      setFocusInitialDuration(undefined);
+
+      // 3. Navigate back to dashboard with fresh clean slate
+      setCurrentTab('dashboard');
+    } catch (e) {
+      console.error('Failed to reset all data:', e);
+      // Fallback reload if browser allows
+      try {
+        setProfile(StorageService.getProfile());
+        setTasks(StorageService.getTasks());
+        setSessions(StorageService.getSessions());
+        setStudyPlans(StorageService.getStudyPlans());
+        setCurrentTab('dashboard');
+      } catch {}
+    }
   };
 
   return (

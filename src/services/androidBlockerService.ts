@@ -9,6 +9,7 @@ import {
 import { StorageService, DEFAULT_BLOCKED_APPS } from './storage';
 import { AudioService } from './audioService';
 import { NotificationService } from './notificationService';
+import { AndroidNativeBridge, PlatformCapabilities } from './androidNativeBridge';
 
 export interface BlockingOverlayPayload {
   app: {
@@ -56,6 +57,14 @@ class AndroidBlockerServiceManager {
   constructor() {
     this.initFromStorage();
     this.setupLifecycleListeners();
+  }
+
+  public getPlatformCapabilities(): PlatformCapabilities {
+    return AndroidNativeBridge.getCapabilities();
+  }
+
+  public isNativeAndroid(): boolean {
+    return AndroidNativeBridge.isNative();
   }
 
   private initFromStorage() {
@@ -272,6 +281,9 @@ class AndroidBlockerServiceManager {
     // Start background tick
     this.startSessionTimer();
 
+    // Trigger native service if in native container
+    AndroidNativeBridge.startNativeBlockingService(params.durationMinutes, targetPackages);
+
     // Trigger persistent notification
     NotificationService.send({
       id: 'notif-focus-active-' + Date.now(),
@@ -333,6 +345,7 @@ class AndroidBlockerServiceManager {
     this.stopSessionTimer();
     this.dismissBlockingOverlay();
     this.systemStatus.foregroundServiceRunning = false;
+    AndroidNativeBridge.stopNativeBlockingService();
 
     // Play chime & notification
     AudioService.playCompletionChime();
@@ -356,6 +369,7 @@ class AndroidBlockerServiceManager {
     this.stopSessionTimer();
     this.dismissBlockingOverlay();
     this.systemStatus.foregroundServiceRunning = false;
+    AndroidNativeBridge.stopNativeBlockingService();
 
     this.notifySessionStateChanged();
   }
@@ -365,6 +379,8 @@ class AndroidBlockerServiceManager {
     StorageService.clearActiveBlockingSession();
     this.stopSessionTimer();
     this.dismissBlockingOverlay();
+    this.systemStatus.foregroundServiceRunning = false;
+    AndroidNativeBridge.stopNativeBlockingService();
     this.notifySessionStateChanged();
   }
 

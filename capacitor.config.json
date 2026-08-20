@@ -1,0 +1,8 @@
+{
+  "appId": "com.focusguard.studyapp",
+  "appName": "FocusGuard",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

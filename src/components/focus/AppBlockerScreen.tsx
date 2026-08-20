@@ -870,6 +870,19 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
                 </p>
               </div>
             </div>
+
+            {/* Step-by-step APK Build Box */}
+            <div className="p-4 bg-slate-950/80 rounded-2xl border border-indigo-900/60 space-y-2 mt-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                <h3 className="text-xs font-bold text-white">How to Generate .APK in 2 Minutes:</h3>
+              </div>
+              <ol className="text-[11px] text-slate-300 space-y-1.5 list-decimal list-inside leading-relaxed">
+                <li><strong className="text-white">Direct Mobile Install (PWA):</strong> Open this app in Chrome on Android & tap <em>"Add to Home screen" / "Install App"</em> for standalone fullscreen APK-like experience.</li>
+                <li><strong className="text-white">Export to ZIP:</strong> Click the top-right Settings/Export menu in AI Studio and download the project ZIP or push to GitHub.</li>
+                <li><strong className="text-white">Build Release APK via Capacitor:</strong> Run <code>npm install @capacitor/core @capacitor/android @capacitor/cli && npx cap add android && npx cap build android</code> to output <code>app-release.apk</code> in Android Studio.</li>
+              </ol>
+            </div>
           </div>
         </div>
       )}

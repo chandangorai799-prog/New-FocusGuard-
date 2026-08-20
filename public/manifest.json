@@ -1,0 +1,18 @@
+{
+  "short_name": "FocusGuard",
+  "name": "FocusGuard: AI Study & Focus App",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%230f172a'/%3E%3Cpath d='M256 64L384 128V256C384 352 256 448 256 448C256 448 128 352 128 256V128L256 64Z' fill='%232563eb'/%3E%3Cpath d='M256 128L340 170V256C340 320 256 384 256 384C256 384 172 320 172 256V170L256 128Z' fill='%233b82f6'/%3E%3Cpath d='M240 200L210 270H250L230 330L290 250H250L270 200H240Z' fill='%23ffffff'/%3E%3C/svg%3E",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/"
+}

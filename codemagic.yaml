@@ -4,7 +4,7 @@ workflows:
     max_build_duration: 60
     instance_type: linux
     environment:
-      java: 21
+      java: 17
       node: 20
       groups:
         - google_play # Optional: For signed releases
@@ -13,25 +13,23 @@ workflows:
     scripts:
       - name: Install npm dependencies
         script: |
-          npm ci || npm install
+          npm install --legacy-peer-deps
+          npm install @capacitor/core@6.2.0 @capacitor/cli@6.2.0 @capacitor/android@6.2.0 --save
       - name: Build web application
         script: |
-          # Build the production web assets into dist/
+          # Build web assets with vite into dist/
           npm run build
       - name: Set up Capacitor Android platform
         script: |
-          # Install stable Capacitor 6 LTS packages compatible with Android build tools
-          npm install @capacitor/core@^6.2.0 @capacitor/cli@^6.2.0 @capacitor/android@^6.2.0 --save
-
-          # Initialize Android project if not present, then sync web build
           if [ ! -d "android" ]; then
             npx cap add android
           fi
           npx cap sync android
       - name: Configure Android Signing & Gradle
         script: |
-          # Ensure Gradle daemon memory configuration
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:+HeapDumpOnOutOfMemoryError" >> android/gradle.properties
+          # Ensure Gradle memory limits
+          mkdir -p android
+          echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" >> android/gradle.properties
 
           if [ -n "$CM_KEYSTORE" ] && [ -n "$CM_KEYSTORE_PASSWORD" ] && [ -n "$CM_KEY_ALIAS" ] && [ -n "$CM_KEY_PASSWORD" ]; then
             echo "Setting up release signing keystore..."
@@ -55,7 +53,7 @@ workflows:
           }
           EOF
           else
-            echo "No custom keystore provided. Configuring release to use debug keystore for installable testing APK..."
+            echo "No custom keystore provided. Configuring release to use debug keystore..."
             cat >> android/app/build.gradle <<EOF
 
           android {
@@ -71,11 +69,10 @@ workflows:
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease assembleDebug --stacktrace
+          ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
     artifacts:
       - android/app/build/outputs/apk/**/*.apk
       - android/app/build/outputs/bundle/**/*.aab
-      - android/app/build/outputs/mapping/**/*.txt
     publishing:
       email:
         recipients:

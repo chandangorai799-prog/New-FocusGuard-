@@ -2,9 +2,9 @@ workflows:
   android-release-apk:
     name: FocusGuard Android Release APK
     max_build_duration: 60
-    instance_type: mac_mini_m1
+    instance_type: linux_x2
     environment:
-      java: 17
+      java: 21
       node: 20
       groups:
         - google_play # Optional: For signed releases
@@ -20,16 +20,19 @@ workflows:
           npm run build
       - name: Set up Capacitor Android platform
         script: |
-          # Install Capacitor CLI and Android core libraries if not already in node_modules
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          # Install stable Capacitor 6 LTS packages compatible with Android build tools
+          npm install @capacitor/core@^6.2.0 @capacitor/cli@^6.2.0 @capacitor/android@^6.2.0 --save
 
-          # Add android platform if directory does not exist, otherwise sync
+          # Initialize Android project if not present, then sync web build
           if [ ! -d "android" ]; then
             npx cap add android
           fi
           npx cap sync android
-      - name: Set up Android keystore (Optional Signing)
+      - name: Configure Android Signing & Gradle
         script: |
+          # Ensure Gradle daemon memory configuration
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:+HeapDumpOnOutOfMemoryError" >> android/gradle.properties
+
           if [ -n "$CM_KEYSTORE" ] && [ -n "$CM_KEYSTORE_PASSWORD" ] && [ -n "$CM_KEY_ALIAS" ] && [ -n "$CM_KEY_PASSWORD" ]; then
             echo "Setting up release signing keystore..."
             echo "$CM_KEYSTORE" | base64 --decode > /tmp/keystore.keystore
@@ -52,17 +55,27 @@ workflows:
           }
           EOF
           else
-            echo "No custom keystore provided. Building unsigned release / assembleRelease APK."
+            echo "No custom keystore provided. Configuring release to use debug keystore for installable testing APK..."
+            cat >> android/app/build.gradle <<EOF
+
+          android {
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.debug
+                  }
+              }
+          }
+          EOF
           fi
-      - name: Build Android Release APK with Gradle
+      - name: Build Android APK with Gradle
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease assembleDebug --stacktrace
     artifacts:
-      - android/app/build/outputs/apk/release/*.apk
-      - android/app/build/outputs/bundle/release/*.aab
-      - android/app/build/outputs/mapping/release/mapping.txt
+      - android/app/build/outputs/apk/**/*.apk
+      - android/app/build/outputs/bundle/**/*.aab
+      - android/app/build/outputs/mapping/**/*.txt
     publishing:
       email:
         recipients:

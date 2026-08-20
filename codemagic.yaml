@@ -66,7 +66,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - ${CM_USER_EMAIL:-chandangorai799@gmail.com}
+          - chandangorai799@gmail.com
         notify:
           success: true
           failure: true

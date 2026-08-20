@@ -31,6 +31,57 @@ function getGeminiClient(): GoogleGenAI | null {
   return geminiClient;
 }
 
+// Resilient multi-model fallback list in priority order
+const CANDIDATE_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-3.7-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+];
+
+async function generateContentWithRetryAndFallback(
+  ai: GoogleGenAI,
+  params: {
+    contents: string;
+    config?: {
+      responseMimeType?: string;
+      systemInstruction?: string;
+    };
+  }
+) {
+  let lastError: any = null;
+
+  for (const model of CANDIDATE_MODELS) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: params.contents,
+          config: params.config,
+        });
+
+        if (response && response.text) {
+          return { response, modelUsed: model };
+        }
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = err?.message || String(err);
+        console.warn(`[Gemini API] Model ${model} (attempt ${attempt}/2) failed: ${errMsg}`);
+
+        // If 503 (high demand) or 429 (rate limit), pause briefly before retry
+        const isTemporary = errMsg.includes("503") || errMsg.includes("429") || errMsg.includes("high demand") || errMsg.includes("UNAVAILABLE");
+        if (isTemporary && attempt === 1) {
+          await new Promise((r) => setTimeout(r, 600));
+        } else {
+          break; // move to next candidate model
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error("All Gemini model endpoints currently unavailable");
+}
+
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({
@@ -218,8 +269,7 @@ Generate a detailed study blueprint in strictly valid JSON matching this exact s
 }
 Provide at least 3-5 daily schedule breakdown days covering the topics sequentially. Ensure JSON is strictly valid.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
+    const { response, modelUsed } = await generateContentWithRetryAndFallback(ai, {
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -229,7 +279,7 @@ Provide at least 3-5 daily schedule breakdown days covering the topics sequentia
 
     const responseText = response.text || "{}";
     const parsed = JSON.parse(responseText.trim());
-    return res.json({ plan: parsed, isFallback: false });
+    return res.json({ plan: parsed, isFallback: false, modelUsed });
   } catch (error: any) {
     console.error("AI Planner error:", error);
     const {
@@ -400,8 +450,7 @@ Answer clearly, encourage active recall, give structured bullet points, and offe
 
     const isJsonMode = mode === "quiz" || mode === "mcq" || mode === "flashcards";
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
+    const { response, modelUsed } = await generateContentWithRetryAndFallback(ai, {
       contents: prompt,
       config: {
         systemInstruction,
@@ -414,13 +463,13 @@ Answer clearly, encourage active recall, give structured bullet points, and offe
     if (isJsonMode) {
       try {
         const parsed = JSON.parse(responseText.trim());
-        return res.json({ result: parsed, rawText: responseText, mode, isFallback: false });
+        return res.json({ result: parsed, rawText: responseText, mode, isFallback: false, modelUsed });
       } catch (err) {
-        return res.json({ result: responseText, mode, isFallback: false });
+        return res.json({ result: responseText, mode, isFallback: false, modelUsed });
       }
     }
 
-    return res.json({ result: responseText, mode, isFallback: false });
+    return res.json({ result: responseText, mode, isFallback: false, modelUsed });
   } catch (error: any) {
     console.error("AI Assistant error:", error);
     const { mode, subject, input, query, options } = req.body;

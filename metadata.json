@@ -1,0 +1,6 @@
+{
+  "name": "FocusGuard",
+  "description": "AI-powered study and productivity companion for students featuring smart focus mode, Pomodoro timer, AI study planner, task manager, and AI study assistant.",
+  "requestFramePermissions": ["notifications"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

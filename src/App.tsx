@@ -1,0 +1,390 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { NavigationTab, UserProfile, TaskItem, FocusSessionRecord, StudyPlan, FocusSettings, PomodoroSettings, ChatMessage, AppNotification } from './types';
+import { StorageService } from './services/storage';
+import { AudioService } from './services/audioService';
+import { Header } from './components/common/Header';
+import { BottomNav } from './components/common/BottomNav';
+import { OnboardingModal } from './components/common/OnboardingModal';
+import { DistractionShieldModal } from './components/common/DistractionShieldModal';
+import { NotificationsModal } from './components/common/NotificationsModal';
+
+// Views
+import { DashboardView } from './components/dashboard/DashboardView';
+import { SmartFocusView } from './components/focus/SmartFocusView';
+import { PomodoroView } from './components/pomodoro/PomodoroView';
+import { StudyPlannerView } from './components/planner/StudyPlannerView';
+import { AIAssistantView } from './components/assistant/AIAssistantView';
+import { TaskManagerView } from './components/tasks/TaskManagerView';
+import { StatisticsView } from './components/statistics/StatisticsView';
+import { ProfileSettingsView } from './components/profile/ProfileSettingsView';
+import { AppBlockerScreen } from './components/focus/AppBlockerScreen';
+import { BlockingOverlay } from './components/focus/BlockingOverlay';
+
+export default function App() {
+  const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
+  const [profile, setProfile] = useState<UserProfile>(StorageService.getProfile());
+  const [tasks, setTasks] = useState<TaskItem[]>(StorageService.getTasks());
+  const [sessions, setSessions] = useState<FocusSessionRecord[]>(StorageService.getSessions());
+  const [studyPlans, setStudyPlans] = useState<StudyPlan[]>(StorageService.getStudyPlans());
+  const [focusSettings, setFocusSettings] = useState<FocusSettings>(StorageService.getFocusSettings());
+  const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettings>(StorageService.getPomodoroSettings());
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(StorageService.getChatMessages());
+  const [notifications, setNotifications] = useState<AppNotification[]>(StorageService.getNotifications());
+
+  // Modal States
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(!profile.onboardingCompleted);
+  const [showShieldModal, setShowShieldModal] = useState<boolean>(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
+  const [isFocusSessionActive, setIsFocusSessionActive] = useState<boolean>(false);
+  const [focusInitialDuration, setFocusInitialDuration] = useState<number | undefined>(undefined);
+
+  // Sub-tabs for bottom nav mapping
+  const activeBottomTab: 'dashboard' | 'focus' | 'planner' | 'assistant' | 'tasks' | 'profile' =
+    currentTab === 'pomodoro' ? 'focus' :
+    currentTab === 'statistics' ? 'profile' :
+    currentTab;
+
+  const unreadNotifsCount = (notifications || []).filter((n) => !n.read).length;
+
+  // Refresh notifications list helper
+  const handleRefreshNotifications = () => {
+    setNotifications(StorageService.getNotifications());
+  };
+
+  // Switch tab with audio feedback
+  const handleTabChange = (tab: NavigationTab) => {
+    AudioService.playTap();
+    setCurrentTab(tab);
+  };
+
+  // Launch Focus Mode from Dashboard or Task
+  const handleStartFocus = (durationMinutes?: number) => {
+    setFocusInitialDuration(durationMinutes || 45);
+    setCurrentTab('focus');
+  };
+
+  const handleStartPomodoro = () => {
+    setCurrentTab('pomodoro');
+  };
+
+  const handleStartFocusForTask = (task: TaskItem) => {
+    setFocusInitialDuration(task.estimatedMinutes || 45);
+    setCurrentTab('focus');
+  };
+
+  // Task Handlers
+  const handleAddTask = (newTask: Omit<TaskItem, 'id' | 'createdAt'>) => {
+    const created = StorageService.addTask(newTask);
+    setTasks(StorageService.getTasks());
+    return created;
+  };
+
+  const handleUpdateTask = (task: TaskItem) => {
+    StorageService.updateTask(task);
+    setTasks(StorageService.getTasks());
+  };
+
+  const handleDeleteTask = (id: string) => {
+    StorageService.deleteTask(id);
+    setTasks(StorageService.getTasks());
+  };
+
+  const handleToggleTask = (id: string) => {
+    AudioService.playTap();
+    StorageService.toggleTask(id);
+    setTasks(StorageService.getTasks());
+  };
+
+  // Session Logging Handler
+  const handleRecordSession = (sessionData: Omit<FocusSessionRecord, 'id'>) => {
+    StorageService.addSession(sessionData);
+    setSessions(StorageService.getSessions());
+    setProfile(StorageService.getProfile());
+    setNotifications(StorageService.getNotifications());
+  };
+
+  // Study Plan Handlers
+  const handleAddPlan = (plan: StudyPlan) => {
+    StorageService.saveStudyPlan(plan);
+    setStudyPlans(StorageService.getStudyPlans());
+  };
+
+  const handleDeletePlan = (id: string) => {
+    StorageService.deleteStudyPlan(id);
+    setStudyPlans(StorageService.getStudyPlans());
+  };
+
+  const handleTogglePlanTask = (planId: string, taskId: string) => {
+    StorageService.togglePlanTask(planId, taskId);
+    setStudyPlans(StorageService.getStudyPlans());
+  };
+
+  const handleImportPlanTasks = (newTasks: Omit<TaskItem, 'id' | 'createdAt'>[]) => {
+    newTasks.forEach((t) => StorageService.addTask(t));
+    setTasks(StorageService.getTasks());
+  };
+
+  // Chat Assistant Handlers
+  const handleSendMessage = (msg: ChatMessage) => {
+    StorageService.addChatMessage(msg);
+    setChatMessages(StorageService.getChatMessages());
+  };
+
+  const handleClearHistory = () => {
+    StorageService.clearChatMessages();
+    setChatMessages([]);
+  };
+
+  // Settings Handlers
+  const handleUpdateProfile = (newProfile: UserProfile) => {
+    StorageService.saveProfile(newProfile);
+    setProfile(newProfile);
+  };
+
+  const handleUpdateFocusSettings = (newSettings: FocusSettings) => {
+    StorageService.saveFocusSettings(newSettings);
+    setFocusSettings(newSettings);
+  };
+
+  const handleUpdatePomodoroSettings = (newSettings: PomodoroSettings) => {
+    StorageService.savePomodoroSettings(newSettings);
+    setPomodoroSettings(newSettings);
+  };
+
+  const handleResetAllData = () => {
+    StorageService.resetToDefaults();
+    setProfile(StorageService.getProfile());
+    setTasks(StorageService.getTasks());
+    setSessions(StorageService.getSessions());
+    setStudyPlans(StorageService.getStudyPlans());
+    setChatMessages(StorageService.getChatMessages());
+    setNotifications(StorageService.getNotifications());
+    alert('FocusGuard reset to fresh study blueprint defaults!');
+  };
+
+  return (
+    <div className="min-h-screen w-full bg-slate-950 text-slate-100 flex flex-col items-center font-sans selection:bg-blue-500 selection:text-white antialiased">
+      {/* Responsive Centered Application Canvas */}
+      <div className="w-full max-w-4xl lg:max-w-5xl flex-1 flex flex-col relative bg-slate-950 min-h-screen shadow-2xl border-x border-slate-900/80">
+        {/* Android Top Header */}
+        <Header
+          profile={profile}
+          notifications={notifications}
+          streakCount={profile.streakCount}
+          unreadCount={unreadNotifsCount}
+          onOpenShield={() => {
+            AudioService.playTap();
+            setShowShieldModal(true);
+          }}
+          onOpenNotifications={() => {
+            AudioService.playTap();
+            setShowNotificationsModal(true);
+          }}
+          onOpenProfile={() => handleTabChange('profile')}
+          isFocusActive={isFocusSessionActive}
+        />
+
+        {/* Secondary Sub-Navigation for Mode Switching when on Focus or Profile tabs */}
+        {(currentTab === 'focus' || currentTab === 'pomodoro') && (
+          <div className="px-4 py-2 bg-slate-900/90 border-b border-slate-800/80 flex justify-center gap-2">
+            <button
+              onClick={() => handleTabChange('focus')}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition ${
+                currentTab === 'focus'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200 bg-slate-800/60'
+              }`}
+            >
+              Smart Focus Shield
+            </button>
+            <button
+              onClick={() => handleTabChange('pomodoro')}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition ${
+                currentTab === 'pomodoro'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                  : 'text-slate-400 hover:text-slate-200 bg-slate-800/60'
+              }`}
+            >
+              Pomodoro Timer
+            </button>
+          </div>
+        )}
+
+        {(currentTab === 'profile' || currentTab === 'statistics') && (
+          <div className="px-4 py-2 bg-slate-900/90 border-b border-slate-800/80 flex justify-center gap-2">
+            <button
+              onClick={() => handleTabChange('profile')}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition ${
+                currentTab === 'profile'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200 bg-slate-800/60'
+              }`}
+            >
+              Profile & Goals
+            </button>
+            <button
+              onClick={() => handleTabChange('statistics')}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition ${
+                currentTab === 'statistics'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200 bg-slate-800/60'
+              }`}
+            >
+              Productivity Insights
+            </button>
+          </div>
+        )}
+
+        {/* Main Viewport Container */}
+        <main className="flex-1 w-full p-3.5 sm:p-5 md:p-6 overflow-y-auto pb-24">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentTab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+              className="w-full"
+            >
+              {currentTab === 'dashboard' && (
+                <DashboardView
+                  profile={profile}
+                  tasks={tasks}
+                  sessions={sessions}
+                  studyPlans={studyPlans}
+                  onStartFocus={handleStartFocus}
+                  onStartPomodoro={handleStartPomodoro}
+                  onNavigateToTab={(tab) => handleTabChange(tab)}
+                  onToggleTask={handleToggleTask}
+                />
+              )}
+
+              {currentTab === 'focus' && (
+                <SmartFocusView
+                  settings={focusSettings}
+                  profile={profile}
+                  initialDuration={focusInitialDuration}
+                  onRecordSession={handleRecordSession}
+                  onUpdateSettings={handleUpdateFocusSettings}
+                  onFocusStateChange={setIsFocusSessionActive}
+                  onOpenShield={() => setShowShieldModal(true)}
+                />
+              )}
+
+              {currentTab === 'pomodoro' && (
+                <PomodoroView
+                  settings={pomodoroSettings}
+                  profile={profile}
+                  sessions={sessions}
+                  onRecordSession={handleRecordSession}
+                  onUpdateSettings={handleUpdatePomodoroSettings}
+                  onFocusStateChange={setIsFocusSessionActive}
+                />
+              )}
+
+              {(currentTab === 'planner' || currentTab === 'ai') && (
+                <StudyPlannerView
+                  studyPlans={studyPlans}
+                  onAddPlan={handleAddPlan}
+                  onDeletePlan={handleDeletePlan}
+                  onTogglePlanTask={handleTogglePlanTask}
+                  onImportToTasks={handleImportPlanTasks}
+                />
+              )}
+
+              {currentTab === 'assistant' && (
+                <AIAssistantView
+                  messages={chatMessages}
+                  profile={profile}
+                  onSendMessage={handleSendMessage}
+                  onClearHistory={handleClearHistory}
+                />
+              )}
+
+              {currentTab === 'tasks' && (
+                <TaskManagerView
+                  tasks={tasks}
+                  onAddTask={handleAddTask}
+                  onUpdateTask={handleUpdateTask}
+                  onDeleteTask={handleDeleteTask}
+                  onToggleTask={handleToggleTask}
+                  onStartFocusForTask={handleStartFocusForTask}
+                />
+              )}
+
+              {currentTab === 'statistics' && (
+                <StatisticsView
+                  sessions={sessions}
+                  tasks={tasks}
+                  profile={profile}
+                />
+              )}
+
+              {currentTab === 'profile' && (
+                <ProfileSettingsView
+                  profile={profile}
+                  focusSettings={focusSettings}
+                  pomodoroSettings={pomodoroSettings}
+                  onUpdateProfile={handleUpdateProfile}
+                  onUpdateFocusSettings={handleUpdateFocusSettings}
+                  onUpdatePomodoroSettings={handleUpdatePomodoroSettings}
+                  onResetAllData={handleResetAllData}
+                  onRestartOnboarding={() => setShowOnboarding(true)}
+                  onOpenShield={() => handleTabChange('appBlocker')}
+                />
+              )}
+
+              {currentTab === 'appBlocker' && (
+                <AppBlockerScreen
+                  onBack={() => handleTabChange('focus')}
+                  onStartFocusSession={() => handleTabChange('focus')}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+
+        {/* Android Bottom Navigation */}
+        <BottomNav
+          activeTab={activeBottomTab}
+          onTabSelect={(tab) => {
+            handleTabChange(tab as NavigationTab);
+          }}
+          pendingTasksCount={(tasks || []).filter((t) => !t.completed).length}
+        />
+
+        {/* Real-time Android Blocking Overlay */}
+        <BlockingOverlay
+          onReturnToFocus={() => {
+            handleTabChange('focus');
+          }}
+        />
+
+        {/* Global Modals */}
+        <OnboardingModal
+          isOpen={showOnboarding}
+          onComplete={(newProfile) => {
+            setProfile(newProfile);
+            setShowOnboarding(false);
+          }}
+        />
+
+        <DistractionShieldModal
+          isOpen={showShieldModal}
+          onClose={() => setShowShieldModal(false)}
+          onBlocklistUpdated={(_count) => {
+            setProfile(StorageService.getProfile());
+          }}
+        />
+
+        <NotificationsModal
+          isOpen={showNotificationsModal}
+          onClose={() => setShowNotificationsModal(false)}
+          notifications={notifications}
+          onRefresh={handleRefreshNotifications}
+        />
+      </div>
+    </div>
+  );
+}

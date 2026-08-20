@@ -170,6 +170,10 @@ export const PomodoroView: React.FC<PomodoroViewProps> = ({
 
   const handleReset = () => {
     AudioService.playTap();
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     setIsRunning(false);
     if (mode === 'focus') {
       AndroidBlockerService.resetSessionToIdle();

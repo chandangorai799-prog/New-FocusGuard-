@@ -167,7 +167,12 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
 
   const handleReset = () => {
     AudioService.playTap();
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     setIsRunning(false);
+    setSessionStatus('IDLE');
     AudioService.stopAmbient();
     AndroidBlockerService.resetSessionToIdle();
     setTimeLeft(selectedDuration * 60);

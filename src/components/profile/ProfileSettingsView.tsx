@@ -58,6 +58,8 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
   const [soundEnabled, setSoundEnabled] = useState<boolean>(focusSettings.soundEnabled ?? true);
   const [hapticEnabled, setHapticEnabled] = useState<boolean>(focusSettings.hapticFeedback ?? true);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
+  const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
+  const [resetSuccess, setResetSuccess] = useState<boolean>(false);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -415,13 +417,7 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
           <button
             onClick={() => {
               AudioService.playTap();
-              if (
-                confirm(
-                  'Are you sure you want to reset all focus session history, study plans, and tasks to default demo state?'
-                )
-              ) {
-                onResetAllData();
-              }
+              setShowResetConfirm(true);
             }}
             className="w-full py-2.5 px-4 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 text-xs font-semibold border border-rose-800/40 flex items-center justify-center gap-2 transition cursor-pointer"
           >
@@ -429,6 +425,49 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
             <span className="truncate">Reset Demo Data</span>
           </button>
         </div>
+
+        {resetSuccess && (
+          <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-2xl flex items-center gap-2 text-emerald-300 text-xs font-semibold">
+            <Check className="w-4 h-4 shrink-0" />
+            <span>FocusGuard reset successfully to fresh default blueprint!</span>
+          </div>
+        )}
+
+        {showResetConfirm && (
+          <div className="p-4 bg-slate-950/90 border border-rose-500/40 rounded-2xl space-y-3 shadow-xl">
+            <div className="flex items-start gap-2.5">
+              <Trash2 className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-white">Confirm Reset Application Data?</h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  This will reset your focus sessions, study plans, and task logs back to clean initial demo state.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(false)}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  AudioService.playTap();
+                  setShowResetConfirm(false);
+                  onResetAllData();
+                  setResetSuccess(true);
+                  setTimeout(() => setResetSuccess(false), 3000);
+                }}
+                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-md shadow-rose-900/30 cursor-pointer"
+              >
+                Yes, Reset All Data
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* App Version Info */}

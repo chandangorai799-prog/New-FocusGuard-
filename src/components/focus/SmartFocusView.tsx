@@ -82,41 +82,6 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
   const [rating, setRating] = useState<number>(5);
   const [reflectionNotes, setReflectionNotes] = useState<string>('Achieved great deep focus with zero distraction.');
   const [blockedAppsCount, setBlockedAppsCount] = useState<number>(0);
-  const [testAlertCountdown, setTestAlertCountdown] = useState<number | null>(null);
-  const [testAlertSuccess, setTestAlertSuccess] = useState<boolean>(false);
-
-  const handleTriggerTest5PMAlert = async () => {
-    AudioService.playTap();
-    await NotificationService.requestPermission();
-
-    NotificationService.scheduleTestLockScreenNotification(
-      3,
-      (remaining) => {
-        setTestAlertCountdown(remaining);
-        if (remaining <= 0) {
-          setTestAlertCountdown(null);
-          setTestAlertSuccess(true);
-          setTimeout(() => setTestAlertSuccess(false), 5000);
-        }
-      },
-      profile.studyReminderTime || '17:00'
-    );
-  };
-
-  const handleUpdateReminderTime = (newTime: string) => {
-    AudioService.playTap();
-    const updated = {
-      ...profile,
-      studyReminderEnabled: true,
-      studyReminderTime: newTime,
-    };
-    StorageService.saveProfile(updated);
-    if (onUpdateProfile) {
-      onUpdateProfile(updated);
-    }
-  };
-
-  const formattedReminder = NotificationService.formatTime(profile.studyReminderTime || '17:00');
 
   // Hours & Minutes Breakdown
   const hours = Math.floor(selectedDuration / 60);
@@ -446,59 +411,6 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
             {profile.blockedAppsCount || 20}
           </span>
         </button>
-      </div>
-
-      {/* Daily Customizable Focus Notification Quick Test & Time Selector Banner */}
-      <div className="w-full p-3.5 rounded-2xl bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-purple-950/50 border border-blue-600/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-lg shadow-blue-950/20">
-        <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-          <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">
-            <Timer className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-white">Daily Focus Reminder ({formattedReminder})</span>
-              <span className="text-[9.5px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-semibold border border-emerald-500/30">
-                Lock Screen & Background
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-300">
-              {testAlertSuccess
-                ? '✅ Notification sent! Check your lock screen / notification shade.'
-                : `Roz ${formattedReminder} par automatic alert aayega: "Ready to focus?"`}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
-          <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded-xl border border-blue-500/30">
-            <span className="text-[10.5px] text-slate-400">Time:</span>
-            <input
-              type="time"
-              value={profile.studyReminderTime || '17:00'}
-              onChange={(e) => handleUpdateReminderTime(e.target.value)}
-              className="bg-transparent text-xs text-blue-300 font-mono focus:outline-none cursor-pointer"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleTriggerTest5PMAlert}
-            disabled={testAlertCountdown !== null}
-            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800/70 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shrink-0 shadow-md shadow-blue-900/40 cursor-pointer"
-          >
-            {testAlertCountdown !== null ? (
-              <>
-                <Clock className="w-3.5 h-3.5 animate-spin" />
-                <span>Lock Screen ({testAlertCountdown}s)...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>⚡ Test Alert</span>
-              </>
-            )}
-          </button>
-        </div>
       </div>
 
       {/* Main Focus Ring & Timer Display */}

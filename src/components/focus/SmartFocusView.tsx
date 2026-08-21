@@ -80,6 +80,22 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
   const [rating, setRating] = useState<number>(5);
   const [reflectionNotes, setReflectionNotes] = useState<string>('Achieved great deep focus with zero distraction.');
   const [blockedAppsCount, setBlockedAppsCount] = useState<number>(0);
+  const [testAlertCountdown, setTestAlertCountdown] = useState<number | null>(null);
+  const [testAlertSuccess, setTestAlertSuccess] = useState<boolean>(false);
+
+  const handleTriggerTest5PMAlert = async () => {
+    AudioService.playTap();
+    await NotificationService.requestPermission();
+
+    NotificationService.scheduleTestLockScreenNotification(3, (remaining) => {
+      setTestAlertCountdown(remaining);
+      if (remaining <= 0) {
+        setTestAlertCountdown(null);
+        setTestAlertSuccess(true);
+        setTimeout(() => setTestAlertSuccess(false), 5000);
+      }
+    });
+  };
 
   // Hours & Minutes Breakdown
   const hours = Math.floor(selectedDuration / 60);
@@ -408,6 +424,47 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
           <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded font-mono">
             {profile.blockedAppsCount || 20}
           </span>
+        </button>
+      </div>
+
+      {/* Daily 5:00 PM Lock Screen Notification Quick Test Banner */}
+      <div className="w-full p-3 rounded-2xl bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-purple-950/50 border border-blue-600/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-blue-950/20">
+        <div className="flex items-center space-x-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">
+            <Timer className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold text-white">Daily 5:00 PM Focus Reminder</span>
+              <span className="text-[9.5px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-semibold border border-emerald-500/30">
+                Lock Screen & Background
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 truncate">
+              {testAlertSuccess
+                ? '✅ Notification sent! Check your lock screen / notification shade.'
+                : 'Har shaam 5:00 baje automatic alert: "Ready to focus?"'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleTriggerTest5PMAlert}
+          disabled={testAlertCountdown !== null}
+          className="w-full sm:w-auto px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800/70 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shrink-0 shadow-md shadow-blue-900/40 cursor-pointer"
+        >
+          {testAlertCountdown !== null ? (
+            <>
+              <Clock className="w-3.5 h-3.5 animate-spin" />
+              <span>Lock Phone Screen ({testAlertCountdown}s)...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>⚡ Test Lock Screen Alert</span>
+            </>
+          )}
         </button>
       </div>
 

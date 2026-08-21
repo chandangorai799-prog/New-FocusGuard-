@@ -1,5 +1,5 @@
 {
-  "appId": "com.focusguard.studyapp",
+  "appId": "com.focusguard.app",
   "appName": "FocusGuard",
   "webDir": "dist",
   "server": {

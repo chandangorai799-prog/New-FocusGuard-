@@ -1,20 +1,91 @@
+import { registerPlugin, Capacitor } from '@capacitor/core';
+
 /**
- * FocusGuard Android Native Bridge & Platform Detection
- * 
- * Provides integration between FocusGuard web/PWA interface and 
- * Capacitor / Android Native Plugins for system-wide app blocking.
- *
- * Android Native Architecture Requirements for OS-level App Interception:
- * 1. PACKAGE_USAGE_STATS (android.permission.PACKAGE_USAGE_STATS)
- *    - To query UsageStatsManager for the current foreground running package.
- * 2. SYSTEM_ALERT_WINDOW (android.permission.SYSTEM_ALERT_WINDOW)
- *    - To draw the FocusGuard Shield lock overlay over other Android apps.
- * 3. BIND_ACCESSIBILITY_SERVICE (android.permission.BIND_ACCESSIBILITY_SERVICE)
- *    - AccessibilityService (FocusAccessibilityService) to receive instant TYPE_WINDOW_STATE_CHANGED
- *      events when any Android package is brought to foreground.
- * 4. FOREGROUND_SERVICE (android.permission.FOREGROUND_SERVICE)
- *    - Keeps the timer and blocker background service alive without being killed by Android Doze mode.
+ * FocusGuard Capacitor Plugin Interface
  */
+export interface InstalledAppInfo {
+  name: string;
+  packageName: string;
+  isSystemApp: boolean;
+  category: string;
+}
+
+export interface FocusGuardPluginInterface {
+  enableFocusMode(options: { durationMinutes: number; blockedPackages?: string[] }): Promise<{
+    success: boolean;
+    durationMinutes: number;
+    remainingSeconds: number;
+    isFocusActive: boolean;
+  }>;
+  disableFocusMode(): Promise<{
+    success: boolean;
+    isFocusActive: boolean;
+  }>;
+  isFocusModeEnabled(): Promise<{
+    isEnabled: boolean;
+    remainingSeconds: number;
+    blockedCount: number;
+  }>;
+  getBlockedApps(): Promise<{
+    packages: string[];
+    count: number;
+  }>;
+  setBlockedApps(options: { packages: string[] }): Promise<{
+    success: boolean;
+    count: number;
+  }>;
+  isAccessibilityServiceEnabled(): Promise<{
+    isEnabled: boolean;
+    isRunning: boolean;
+  }>;
+  openAccessibilitySettings(): Promise<{
+    success: boolean;
+  }>;
+  getInstalledApps(): Promise<{
+    apps: InstalledAppInfo[];
+    totalCount: number;
+  }>;
+}
+
+// Register native Capacitor plugin
+export const FocusGuardPlugin = registerPlugin<FocusGuardPluginInterface>('FocusGuardPlugin', {
+  web: {
+    enableFocusMode: async () => ({
+      success: true,
+      durationMinutes: 25,
+      remainingSeconds: 1500,
+      isFocusActive: true,
+    }),
+    disableFocusMode: async () => ({
+      success: true,
+      isFocusActive: false,
+    }),
+    isFocusModeEnabled: async () => ({
+      isEnabled: false,
+      remainingSeconds: 0,
+      blockedCount: 0,
+    }),
+    getBlockedApps: async () => ({
+      packages: [],
+      count: 0,
+    }),
+    setBlockedApps: async () => ({
+      success: true,
+      count: 0,
+    }),
+    isAccessibilityServiceEnabled: async () => ({
+      isEnabled: true,
+      isRunning: true,
+    }),
+    openAccessibilitySettings: async () => ({
+      success: true,
+    }),
+    getInstalledApps: async () => ({
+      apps: [],
+      totalCount: 0,
+    }),
+  },
+});
 
 export type AndroidPlatformMode = 'android-native' | 'pwa-web';
 
@@ -24,24 +95,12 @@ export interface PlatformCapabilities {
   canBlockDeviceApps: boolean;
   canShowSystemOverlay: boolean;
   canMonitorForegroundTabs: boolean;
+  accessibilityServiceEnabled: boolean;
   description: string;
 }
 
-export interface NativeBlockerPlugin {
-  checkPermissions: () => Promise<{ usageStats: boolean; overlay: boolean; accessibility: boolean }>;
-  requestUsageStats: () => Promise<void>;
-  requestOverlayPermission: () => Promise<void>;
-  openAccessibilitySettings: () => Promise<void>;
-  startBlockingService: (options: { durationMinutes: number; blockedPackages: string[] }) => Promise<{ success: boolean }>;
-  stopBlockingService: () => Promise<{ success: boolean }>;
-  setBlockedPackages: (options: { packages: string[] }) => Promise<{ success: boolean }>;
-  isServiceRunning: () => Promise<{ isRunning: boolean }>;
-}
-
 export class AndroidNativeBridgeManager {
-  private isCapacitorAvailable: boolean = false;
-  private isCustomBridgeAvailable: boolean = false;
-  private nativePlugin: NativeBlockerPlugin | null = null;
+  private isNativeCache: boolean | null = null;
 
   constructor() {
     this.detectPlatform();
@@ -55,44 +114,38 @@ export class AndroidNativeBridgeManager {
         canBlockDeviceApps: false,
         canShowSystemOverlay: false,
         canMonitorForegroundTabs: true,
+        accessibilityServiceEnabled: false,
         description: 'Server / Non-DOM environment',
       };
     }
 
+    const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
     const anyWin = window as any;
-    
-    // Check for Capacitor native Android runtime
-    const hasCapacitor = !!(
-      anyWin.Capacitor &&
-      typeof anyWin.Capacitor.isNativePlatform === 'function' &&
-      anyWin.Capacitor.isNativePlatform() &&
-      anyWin.Capacitor.getPlatform() === 'android'
-    );
-
-    // Check for custom Android WebView JavascriptInterface
     const hasAndroidBridge = !!anyWin.AndroidBridge;
 
-    this.isCapacitorAvailable = hasCapacitor;
-    this.isCustomBridgeAvailable = hasAndroidBridge;
+    const isNative = isNativeAndroid || hasAndroidBridge;
+    this.isNativeCache = isNative;
 
-    if (hasCapacitor || hasAndroidBridge) {
+    if (isNative) {
       return {
         mode: 'android-native',
         isNative: true,
         canBlockDeviceApps: true,
         canShowSystemOverlay: true,
         canMonitorForegroundTabs: true,
-        description: 'Running inside Native Android container with system-level intercept capability.',
+        accessibilityServiceEnabled: true,
+        description: 'Running as Native Android App with AccessibilityService app blocking.',
       };
     }
 
     return {
       mode: 'pwa-web',
       isNative: false,
-      canBlockDeviceApps: false, // Normal browsers/PWAs cannot terminate external phone apps
-      canShowSystemOverlay: false, // Web browsers cannot draw over external native Android apps
-      canMonitorForegroundTabs: true, // PWA Focus Shield monitors tab visibility & in-app navigation
-      description: 'Running as a Web App / PWA. Focus Shield protects active study tabs and in-app navigation.',
+      canBlockDeviceApps: false,
+      canShowSystemOverlay: false,
+      canMonitorForegroundTabs: true,
+      accessibilityServiceEnabled: false,
+      description: 'Running as Web / PWA. Full features active with client-side focus protection.',
     };
   }
 
@@ -101,29 +154,71 @@ export class AndroidNativeBridgeManager {
   }
 
   public isNative(): boolean {
+    if (this.isNativeCache !== null) return this.isNativeCache;
     return this.detectPlatform().isNative;
   }
 
   /**
-   * Sync blocked package list to native service if running natively
+   * Check if Native Accessibility Service is enabled
    */
-  public async syncBlockedPackages(packages: string[]): Promise<boolean> {
-    const caps = this.detectPlatform();
-    if (!caps.isNative) return false;
+  public async checkAccessibilityEnabled(): Promise<{ isEnabled: boolean; isRunning: boolean }> {
+    if (!this.isNative()) {
+      return { isEnabled: true, isRunning: true }; // PWA fallback
+    }
 
     try {
-      const anyWin = window as any;
-      if (anyWin.AndroidBridge && typeof anyWin.AndroidBridge.setBlockedPackages === 'function') {
-        anyWin.AndroidBridge.setBlockedPackages(JSON.stringify(packages));
-        return true;
-      }
-      if (anyWin.Capacitor?.Plugins?.FocusGuardNativeBlocker) {
-        await anyWin.Capacitor.Plugins.FocusGuardNativeBlocker.setBlockedPackages({ packages });
-        return true;
-      }
-      return false;
+      return await FocusGuardPlugin.isAccessibilityServiceEnabled();
     } catch (e) {
-      console.warn('Native package sync warning:', e);
+      console.warn('Native accessibility check fallback:', e);
+      return { isEnabled: false, isRunning: false };
+    }
+  }
+
+  /**
+   * Open Android Accessibility Settings Screen
+   */
+  public async openAccessibilitySettings(): Promise<boolean> {
+    if (!this.isNative()) {
+      return false;
+    }
+
+    try {
+      const res = await FocusGuardPlugin.openAccessibilitySettings();
+      return res.success;
+    } catch (e) {
+      console.warn('Failed to open accessibility settings:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Query real installed applications from Android OS
+   */
+  public async getInstalledApps(): Promise<InstalledAppInfo[]> {
+    if (!this.isNative()) {
+      return [];
+    }
+
+    try {
+      const res = await FocusGuardPlugin.getInstalledApps();
+      return res.apps || [];
+    } catch (e) {
+      console.warn('Failed to get installed apps:', e);
+      return [];
+    }
+  }
+
+  /**
+   * Sync blocked package list to native service
+   */
+  public async syncBlockedPackages(packages: string[]): Promise<boolean> {
+    if (!this.isNative()) return false;
+
+    try {
+      const res = await FocusGuardPlugin.setBlockedApps({ packages });
+      return res.success;
+    } catch (e) {
+      console.warn('Native package sync error:', e);
       return false;
     }
   }
@@ -132,23 +227,14 @@ export class AndroidNativeBridgeManager {
    * Start native background blocking service
    */
   public async startNativeBlockingService(durationMinutes: number, blockedPackages: string[]): Promise<boolean> {
-    const caps = this.detectPlatform();
-    if (!caps.isNative) return false;
+    if (!this.isNative()) return false;
 
     try {
-      const anyWin = window as any;
-      if (anyWin.AndroidBridge && typeof anyWin.AndroidBridge.startBlocking === 'function') {
-        anyWin.AndroidBridge.startBlocking(durationMinutes, JSON.stringify(blockedPackages));
-        return true;
-      }
-      if (anyWin.Capacitor?.Plugins?.FocusGuardNativeBlocker) {
-        await anyWin.Capacitor.Plugins.FocusGuardNativeBlocker.startBlockingService({
-          durationMinutes,
-          blockedPackages,
-        });
-        return true;
-      }
-      return false;
+      const res = await FocusGuardPlugin.enableFocusMode({
+        durationMinutes,
+        blockedPackages,
+      });
+      return res.success;
     } catch (e) {
       console.warn('Failed to start native blocking service:', e);
       return false;
@@ -159,20 +245,11 @@ export class AndroidNativeBridgeManager {
    * Stop native background blocking service
    */
   public async stopNativeBlockingService(): Promise<boolean> {
-    const caps = this.detectPlatform();
-    if (!caps.isNative) return false;
+    if (!this.isNative()) return false;
 
     try {
-      const anyWin = window as any;
-      if (anyWin.AndroidBridge && typeof anyWin.AndroidBridge.stopBlocking === 'function') {
-        anyWin.AndroidBridge.stopBlocking();
-        return true;
-      }
-      if (anyWin.Capacitor?.Plugins?.FocusGuardNativeBlocker) {
-        await anyWin.Capacitor.Plugins.FocusGuardNativeBlocker.stopBlockingService();
-        return true;
-      }
-      return false;
+      const res = await FocusGuardPlugin.disableFocusMode();
+      return res.success;
     } catch (e) {
       console.warn('Failed to stop native blocking service:', e);
       return false;

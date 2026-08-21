@@ -19,11 +19,13 @@ import {
   ExternalLink,
   Layers,
   Info,
+  DownloadCloud,
 } from 'lucide-react';
 import { BlockedApp, AppBlockerCategory, AndroidPermissionInfo } from '../../types';
 import { StorageService, DEFAULT_BLOCKED_APPS } from '../../services/storage';
 import { AudioService } from '../../services/audioService';
 import { AndroidBlockerService } from '../../services/androidBlockerService';
+import { AndroidNativeBridge, InstalledAppInfo } from '../../services/androidNativeBridge';
 import { PermissionCheckModal } from './PermissionCheckModal';
 
 interface AppBlockerScreenProps {
@@ -63,10 +65,18 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
   const [apps, setApps] = useState<BlockedApp[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [activeTab, setActiveTab] = useState<'all_apps' | 'custom_add' | 'categories' | 'android_perms'>('all_apps');
+  const [activeTab, setActiveTab] = useState<'all_apps' | 'device_apps' | 'custom_add' | 'categories' | 'android_perms'>('all_apps');
   const [permissions, setPermissions] = useState<AndroidPermissionInfo[]>([]);
   const [showPermissionModal, setShowPermissionModal] = useState<boolean>(false);
   const [testResultMsg, setTestResultMsg] = useState<string | null>(null);
+
+  // Native Device Apps State
+  const [deviceApps, setDeviceApps] = useState<InstalledAppInfo[]>([]);
+  const [isLoadingDeviceApps, setIsLoadingDeviceApps] = useState<boolean>(false);
+  const [accessibilityStatus, setAccessibilityStatus] = useState<{ isEnabled: boolean; isRunning: boolean }>({
+    isEnabled: true,
+    isRunning: true,
+  });
 
   // New Custom App state
   const [customName, setCustomName] = useState<string>('');
@@ -78,11 +88,31 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
 
   useEffect(() => {
     loadAppsAndPermissions();
+    checkAccessibility();
+
     const unsubPerms = AndroidBlockerService.subscribeToPermissions((p) => {
       setPermissions(p);
     });
-    return () => unsubPerms();
+
+    const handleFocus = () => {
+      checkAccessibility();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      unsubPerms();
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
+
+  const checkAccessibility = async () => {
+    try {
+      const status = await AndroidNativeBridge.checkAccessibilityEnabled();
+      setAccessibilityStatus(status);
+    } catch (e) {
+      console.warn('Failed to query accessibility status:', e);
+    }
+  };
 
   const loadAppsAndPermissions = () => {
     const loadedApps = StorageService.getBlockedApps().filter(
@@ -90,6 +120,34 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
     );
     setApps(loadedApps);
     setPermissions(AndroidBlockerService.getPermissions());
+  };
+
+  const loadDeviceInstalledApps = async () => {
+    setIsLoadingDeviceApps(true);
+    try {
+      const installed = await AndroidNativeBridge.getInstalledApps();
+      if (installed && installed.length > 0) {
+        setDeviceApps(installed);
+      } else {
+        // Fallback default suggestions for web preview
+        setDeviceApps([
+          { name: 'Instagram', packageName: 'com.instagram.android', isSystemApp: false, category: 'Social' },
+          { name: 'YouTube', packageName: 'com.google.android.youtube', isSystemApp: true, category: 'Entertainment' },
+          { name: 'TikTok', packageName: 'com.zhiliaoapp.musically', isSystemApp: false, category: 'Social' },
+          { name: 'Snapchat', packageName: 'com.snapchat.android', isSystemApp: false, category: 'Social' },
+          { name: 'BGMI', packageName: 'com.pubg.imobile', isSystemApp: false, category: 'Gaming' },
+          { name: 'Netflix', packageName: 'com.netflix.mediaclient', isSystemApp: false, category: 'Entertainment' },
+          { name: 'Reddit', packageName: 'com.reddit.frontpage', isSystemApp: false, category: 'Social' },
+          { name: 'Twitter / X', packageName: 'com.twitter.android', isSystemApp: false, category: 'Social' },
+          { name: 'Free Fire', packageName: 'com.dts.freefiremax', isSystemApp: false, category: 'Gaming' },
+          { name: 'Chrome', packageName: 'com.android.chrome', isSystemApp: true, category: 'Browser' },
+        ]);
+      }
+    } catch (e) {
+      console.warn('Error fetching device apps:', e);
+    } finally {
+      setIsLoadingDeviceApps(false);
+    }
   };
 
   const totalAppsCount = apps.length;
@@ -104,6 +162,40 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
     if (updated) {
       setApps((prev) => prev.map((a) => (a.id === id ? updated : a)));
       showBanner(`Updated: ${updated.name} is now ${updated.isBlocked ? 'Blocked 🛑' : 'Allowed ✅'}`);
+    }
+  };
+
+  const handleToggleDeviceApp = (devApp: InstalledAppInfo) => {
+    AudioService.playTap();
+    const existing = apps.find(
+      (a) => a.packageName?.toLowerCase() === devApp.packageName.toLowerCase()
+    );
+
+    if (existing) {
+      handleToggleApp(existing.id);
+    } else {
+      // Add and block
+      const created = StorageService.addCustomApp({
+        name: devApp.name,
+        category: (devApp.category as AppBlockerCategory) || 'Other',
+        packageName: devApp.packageName,
+        icon: getCategoryEmoji(devApp.category),
+        isBlocked: true,
+      });
+      setApps((prev) => [created, ...prev]);
+      showBanner(`Added & Blocked "${devApp.name}"`);
+    }
+  };
+
+  const getCategoryEmoji = (cat?: string) => {
+    switch (cat) {
+      case 'Social': return '📷';
+      case 'Entertainment': return '🎬';
+      case 'Gaming': return '🎮';
+      case 'Messaging': return '💬';
+      case 'Browser': return '🌐';
+      case 'Shopping': return '🛍️';
+      default: return '📱';
     }
   };
 
@@ -148,7 +240,6 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
     e.preventDefault();
     if (!customName.trim()) return;
 
-    // Safety: do not allow FocusGuard package
     if (customPackage.toLowerCase().includes('focusguard') || customName.toLowerCase().includes('focusguard')) {
       showBanner('❌ FocusGuard cannot be added to the blocked list!');
       return;
@@ -208,6 +299,12 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
     }, 4000);
   };
 
+  const handleOpenAccessibility = async () => {
+    AudioService.playTap();
+    await AndroidNativeBridge.openAccessibilitySettings();
+    setTimeout(checkAccessibility, 1500);
+  };
+
   const showBanner = (msg: string) => {
     setSaveBannerMsg(msg);
     setTimeout(() => {
@@ -232,7 +329,7 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
 
   return (
     <div className="min-h-full w-full bg-slate-950 text-slate-100 p-3 sm:p-5 md:p-6 space-y-5 animate-fadeIn">
-      {/* Top Header & Breadcrumb */}
+      {/* Top Header */}
       <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-4 sm:p-5 rounded-3xl backdrop-blur-md shadow-xl">
         <div className="flex items-center space-x-3 min-w-0 flex-1">
           {onBack && (
@@ -263,13 +360,28 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400 break-words">
-              Select distracting apps to restrict during active Focus Sessions.
+              Restrict distracting apps with real Android AccessibilityService during Focus Sessions.
             </p>
           </div>
         </div>
 
         {/* Action buttons */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Accessibility Service Indicator */}
+          <button
+            id="appblocker-accessibility-badge"
+            onClick={handleOpenAccessibility}
+            className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+              accessibilityStatus.isEnabled
+                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                : 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30 animate-pulse'
+            }`}
+            title="Click to open Android Accessibility Settings"
+          >
+            <span className="text-xs">{accessibilityStatus.isEnabled ? '🟢' : '🔴'}</span>
+            <span>{accessibilityStatus.isEnabled ? 'Accessibility: ON' : 'Enable Accessibility'}</span>
+          </button>
+
           {/* Permission Status Pill */}
           <button
             id="appblocker-permissions-badge"
@@ -279,12 +391,12 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
             }}
             className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
               requiredPermissionsGranted
-                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
                 : 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 animate-pulse'
             }`}
           >
             <Smartphone className="w-3.5 h-3.5 shrink-0" />
-            <span>{requiredPermissionsGranted ? 'Permissions: OK' : 'Grant Permissions'}</span>
+            <span>Permissions</span>
           </button>
 
           {/* Quick Start Focus Button */}
@@ -303,6 +415,29 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
           )}
         </div>
       </div>
+
+      {/* Accessibility Service Disabled Banner */}
+      {!accessibilityStatus.isEnabled && (
+        <div className="p-4 bg-rose-950/40 border border-rose-500/40 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-start sm:items-center space-x-3">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5 sm:mt-0" />
+            <div>
+              <p className="text-xs font-bold text-white">
+                Accessibility Service is Disabled
+              </p>
+              <p className="text-[11px] text-rose-200">
+                To block other Android apps, FocusGuard needs Accessibility permission.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleOpenAccessibility}
+            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition shrink-0 cursor-pointer"
+          >
+            Enable Accessibility
+          </button>
+        </div>
+      )}
 
       {/* Floating Save Notification Banner */}
       {saveBannerMsg && (
@@ -357,7 +492,26 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
           }`}
         >
           <Layers className="w-4 h-4" />
-          <span>App List ({apps.length})</span>
+          <span>Blocklist ({apps.length})</span>
+        </button>
+
+        <button
+          id="tab-device-apps"
+          onClick={() => {
+            AudioService.playTap();
+            setActiveTab('device_apps');
+            if (deviceApps.length === 0) {
+              loadDeviceInstalledApps();
+            }
+          }}
+          className={`pb-2.5 px-4 text-xs font-bold transition flex items-center gap-2 border-b-2 whitespace-nowrap ${
+            activeTab === 'device_apps'
+              ? 'text-blue-400 border-blue-500'
+              : 'text-slate-400 border-transparent hover:text-slate-200'
+          }`}
+        >
+          <Smartphone className="w-4 h-4 text-blue-400" />
+          <span>Device Apps</span>
         </button>
 
         <button
@@ -607,7 +761,79 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
         </div>
       )}
 
-      {/* TAB 2: ADD CUSTOM APP */}
+      {/* TAB 2: DEVICE INSTALLED APPS SCANNER */}
+      {activeTab === 'device_apps' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/70 p-4 rounded-2xl border border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-blue-400" />
+                Applications Installed on Device
+              </h3>
+              <p className="text-xs text-slate-400">
+                Scan and toggle real installed apps directly on your Android phone.
+              </p>
+            </div>
+            <button
+              onClick={loadDeviceInstalledApps}
+              disabled={isLoadingDeviceApps}
+              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center gap-1.5 shrink-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDeviceApps ? 'animate-spin' : ''}`} />
+              <span>{isLoadingDeviceApps ? 'Scanning...' : 'Refresh Apps'}</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {deviceApps.map((devApp) => {
+              const matched = apps.find(
+                (a) => a.packageName?.toLowerCase() === devApp.packageName.toLowerCase()
+              );
+              const isBlocked = matched?.isBlocked ?? false;
+
+              return (
+                <div
+                  key={devApp.packageName}
+                  onClick={() => handleToggleDeviceApp(devApp)}
+                  className={`p-3.5 rounded-2xl border transition flex items-center justify-between cursor-pointer ${
+                    isBlocked
+                      ? 'bg-slate-900/90 border-blue-500/50 shadow-sm'
+                      : 'bg-slate-950/60 border-slate-850 hover:bg-slate-900/50'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3 min-w-0 flex-1 mr-2">
+                    <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl shrink-0">
+                      {getCategoryEmoji(devApp.category)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-white truncate">{devApp.name}</h4>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                          {devApp.category}
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-mono text-slate-400 truncate">{devApp.packageName}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 ${
+                      isBlocked
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-blue-600 hover:text-white'
+                    }`}
+                  >
+                    {isBlocked ? 'Blocked 🛑' : 'Block App +'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: ADD CUSTOM APP */}
       {activeTab === 'custom_add' && (
         <div className="w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-7 space-y-6 shadow-xl">
           <div className="space-y-1">
@@ -740,7 +966,7 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
               <button
                 id="submit-add-app-btn"
                 type="submit"
-                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition flex items-center gap-2"
+                className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition flex items-center gap-2 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Save and Block App</span>
@@ -750,7 +976,7 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
         </div>
       )}
 
-      {/* TAB 3: CATEGORY RULES */}
+      {/* TAB 4: CATEGORY RULES */}
       {activeTab === 'categories' && (
         <div className="space-y-3">
           <p className="text-xs text-slate-400">
@@ -806,7 +1032,7 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
         </div>
       )}
 
-      {/* TAB 4: ANDROID PERMISSIONS & APIS */}
+      {/* TAB 5: ANDROID PERMISSIONS & APIS */}
       {activeTab === 'android_perms' && (
         <div className="space-y-4 w-full">
           <div className="w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4">
@@ -814,7 +1040,7 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
               <div className="flex items-center space-x-2.5">
                 <Smartphone className="w-5 h-5 text-indigo-400" />
                 <h2 className="text-sm font-bold text-white">
-                  Android Subsystem & Architecture (Target API 34)
+                  Android Subsystem & Architecture (Target API 36)
                 </h2>
               </div>
               <button
@@ -832,7 +1058,17 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-400">1. UsageStatsManager</span>
+                  <span className="text-xs font-bold text-blue-400">1. AccessibilityService</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">API 24+</span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  <code className="text-slate-300">android.permission.BIND_ACCESSIBILITY_SERVICE</code> delivers instant window switch detection and activates the shield over blocked applications.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-400">2. UsageStatsManager</span>
                   <span className="text-[10px] text-emerald-400 font-mono">API 21+</span>
                 </div>
                 <p className="text-[11px] text-slate-400">
@@ -842,7 +1078,7 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
 
               <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-400">2. System Alert Window</span>
+                  <span className="text-xs font-bold text-blue-400">3. System Alert Window</span>
                   <span className="text-[10px] text-emerald-400 font-mono">API 23+</span>
                 </div>
                 <p className="text-[11px] text-slate-400">
@@ -852,36 +1088,13 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
 
               <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-400">3. Post Notifications</span>
+                  <span className="text-xs font-bold text-blue-400">4. Post Notifications</span>
                   <span className="text-[10px] text-emerald-400 font-mono">API 33+</span>
                 </div>
                 <p className="text-[11px] text-slate-400">
                   <code className="text-slate-300">android.permission.POST_NOTIFICATIONS</code> displays the persistent timer notification while in the background.
                 </p>
               </div>
-
-              <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-400">4. AccessibilityService</span>
-                  <span className="text-[10px] text-emerald-400 font-mono">API 29+</span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  <code className="text-slate-300">android.permission.BIND_ACCESSIBILITY_SERVICE</code> delivers instant 0ms window switch detection.
-                </p>
-              </div>
-            </div>
-
-            {/* Step-by-step APK Build Box */}
-            <div className="p-4 bg-slate-950/80 rounded-2xl border border-indigo-900/60 space-y-2 mt-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                <h3 className="text-xs font-bold text-white">How to Generate .APK in 2 Minutes:</h3>
-              </div>
-              <ol className="text-[11px] text-slate-300 space-y-1.5 list-decimal list-inside leading-relaxed">
-                <li><strong className="text-white">Direct Mobile Install (PWA):</strong> Open this app in Chrome on Android & tap <em>"Add to Home screen" / "Install App"</em> for standalone fullscreen APK-like experience.</li>
-                <li><strong className="text-white">Export to ZIP:</strong> Click the top-right Settings/Export menu in AI Studio and download the project ZIP or push to GitHub.</li>
-                <li><strong className="text-white">Build Release APK via Capacitor:</strong> Run <code>npm install @capacitor/core @capacitor/android @capacitor/cli && npx cap add android && npx cap build android</code> to output <code>app-release.apk</code> in Android Studio.</li>
-              </ol>
             </div>
           </div>
         </div>
@@ -895,6 +1108,7 @@ export const AppBlockerScreen: React.FC<AppBlockerScreenProps> = ({
           setShowPermissionModal(false);
           showBanner('✅ All required Android permissions granted!');
           loadAppsAndPermissions();
+          checkAccessibility();
         }}
       />
     </div>

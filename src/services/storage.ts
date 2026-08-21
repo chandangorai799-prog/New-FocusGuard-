@@ -14,6 +14,7 @@ import {
   AppBlockerCategory,
   ActiveBlockingSession,
 } from '../types';
+import { AndroidNativeBridge } from './androidNativeBridge';
 
 const STORAGE_KEYS = {
   PROFILE: 'focusguard_profile',
@@ -1045,6 +1046,12 @@ export const StorageService = {
       if (profile.blockedAppsCount !== blockedCount) {
         this.saveProfile({ ...profile, blockedAppsCount: blockedCount });
       }
+
+      // Sync to Native Android SharedPreferences & AccessibilityService
+      const blockedPackages = apps
+        .filter((a) => a.isBlocked && a.packageName && !a.packageName.toLowerCase().includes('focusguard'))
+        .map((a) => a.packageName!);
+      AndroidNativeBridge.syncBlockedPackages(blockedPackages).catch(() => {});
     } catch (e) {
       console.error('Failed to save blocked apps:', e);
     }

@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FocusGuard</string>
+    <string name="title_activity_main">FocusGuard</string>
+    <string name="package_name">com.focusguard.app</string>
+    <string name="custom_url_scheme">com.focusguard.app</string>
+    
+    <!-- Accessibility Service Metadata -->
+    <string name="accessibility_service_label">FocusGuard App Blocker</string>
+    <string name="accessibility_service_description">FocusGuard uses this accessibility permission strictly to detect when you open a distracting app during an active Focus Mode session and show the Focus Shield overlay to help you stay productive.</string>
+</resources>

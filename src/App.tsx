@@ -301,6 +301,8 @@ export default function App() {
           }}
           onOpenNotifications={() => {
             AudioService.playTap();
+            StorageService.markNotificationsRead();
+            setNotifications(StorageService.getNotifications());
             setShowNotificationsModal(true);
           }}
           onOpenThemeModal={() => {

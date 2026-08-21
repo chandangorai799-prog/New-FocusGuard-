@@ -16,6 +16,8 @@ import {
   Star,
   Music,
   Plus,
+  Minus,
+  Clock,
   Radio,
   Headphones,
   CloudRain,
@@ -23,6 +25,7 @@ import {
   Zap,
   Disc,
   Compass,
+  Timer,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FocusSessionRecord, FocusSettings, UserProfile, FocusSessionState } from '../../types';
@@ -51,7 +54,17 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
   onFocusStateChange,
   onOpenShield,
 }) => {
-  const durations = [15, 25, 45, 60, 90];
+  const presetDurations = [
+    { label: '15m', mins: 15 },
+    { label: '25m', mins: 25 },
+    { label: '45m', mins: 45 },
+    { label: '1 Hour', mins: 60 },
+    { label: '1.5 Hours', mins: 90 },
+    { label: '2 Hours', mins: 120 },
+    { label: '3 Hours', mins: 180 },
+    { label: '4 Hours', mins: 240 },
+  ];
+
   const [selectedDuration, setSelectedDuration] = useState<number>(initialDuration || settings.defaultDuration || 45);
   const [timeLeft, setTimeLeft] = useState<number>(selectedDuration * 60);
   const [isRunning, setIsRunning] = useState<boolean>(false);
@@ -67,6 +80,32 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
   const [rating, setRating] = useState<number>(5);
   const [reflectionNotes, setReflectionNotes] = useState<string>('Achieved great deep focus with zero distraction.');
   const [blockedAppsCount, setBlockedAppsCount] = useState<number>(0);
+
+  // Hours & Minutes Breakdown
+  const hours = Math.floor(selectedDuration / 60);
+  const minutes = selectedDuration % 60;
+
+  const handleSetHours = (newHours: number) => {
+    AudioService.playTap();
+    const clampedHours = Math.max(0, Math.min(12, newHours));
+    const newTotal = clampedHours * 60 + minutes;
+    const finalDuration = Math.max(1, newTotal);
+    setSelectedDuration(finalDuration);
+  };
+
+  const handleSetMinutes = (newMinutes: number) => {
+    AudioService.playTap();
+    const clampedMinutes = Math.max(0, Math.min(59, newMinutes));
+    const newTotal = hours * 60 + clampedMinutes;
+    const finalDuration = Math.max(1, newTotal);
+    setSelectedDuration(finalDuration);
+  };
+
+  const handleAdjustDuration = (deltaMins: number) => {
+    AudioService.playTap();
+    const newTotal = Math.max(1, Math.min(720, selectedDuration + deltaMins));
+    setSelectedDuration(newTotal);
+  };
 
   const timerRef = useRef<any>(null);
 
@@ -190,9 +229,9 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
     setTimeLeft(selectedDuration * 60);
   };
 
-  const handleAddFiveMinutes = () => {
+  const handleAddMinutes = (minsToAdd: number) => {
     AudioService.playTap();
-    const newTime = timeLeft + 300;
+    const newTime = timeLeft + minsToAdd * 60;
     setTimeLeft(newTime);
     AndroidBlockerService.updateRemainingSeconds(newTime);
   };
@@ -224,8 +263,12 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
       // ignore
     }
 
+    const hrs = Math.floor(minutes / 60);
+    const remainingMins = minutes % 60;
+    const timeSummary = hrs > 0 ? `${hrs}h ${remainingMins}m` : `${minutes} minutes`;
+
     NotificationService.send('🎯 Focus Session Completed!', {
-      body: `Awesome job! You completed ${minutes} minutes of deep focus in ${subject}.`,
+      body: `Awesome job! You completed ${timeSummary} of deep focus in ${subject}.`,
       tag: 'focus',
     });
   };
@@ -279,11 +322,23 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
     }
   };
 
-  // Format MM:SS
+  // Format HH:MM:SS or MM:SS
   const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
     const s = secs % 60;
+    if (h > 0 || selectedDuration >= 60) {
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const formatDurationBadge = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}m session`;
+    if (h > 0) return `${h} hr session`;
+    return `${m} min session`;
   };
 
   const totalSeconds = selectedDuration * 60;
@@ -390,22 +445,32 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
             />
           </svg>
 
-          {/* Center Text */}
-          <div className="absolute flex flex-col items-center justify-center text-center space-y-1 p-2 max-w-[80%]">
-            <span className="text-4xl sm:text-5xl font-black text-white tracking-tighter font-mono">
-              {formatTime(timeLeft)}
-            </span>
+          {/* Center Digital Clock (HH:MM:SS / MM:SS) */}
+          <div className="absolute flex flex-col items-center justify-center text-center space-y-1 p-2 max-w-[85%]">
+            <div className="flex flex-col items-center">
+              <span className="text-3xl sm:text-4xl lg:text-[42px] font-black text-white tracking-tight font-mono drop-shadow-md">
+                {formatTime(timeLeft)}
+              </span>
+              {selectedDuration >= 60 && (
+                <div className="flex items-center gap-3 text-[9px] uppercase tracking-widest text-slate-400 font-mono mt-0.5">
+                  <span>HRS</span>
+                  <span>MINS</span>
+                  <span>SECS</span>
+                </div>
+              )}
+            </div>
+            
             <span className="text-xs font-semibold text-blue-400 uppercase tracking-widest truncate max-w-full">
               {isRunning ? 'Deep Focus Session' : 'Ready to Focus'}
             </span>
-            <span className="text-[11px] text-slate-400 font-medium px-2 py-0.5 rounded-full bg-slate-800/80 truncate max-w-full">
-              {selectedDuration} min session
+            <span className="text-[11px] text-slate-300 font-semibold px-2.5 py-0.5 rounded-full bg-slate-800/90 border border-slate-700/60 truncate max-w-full">
+              {formatDurationBadge(selectedDuration)}
             </span>
           </div>
         </div>
 
-        {/* Action Controls (Play/Pause/Reset) */}
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-6">
+        {/* Action Controls (Play/Pause/Reset/Quick Extend) */}
+        <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 mt-6">
           <button
             id="focus-reset-btn"
             onClick={handleReset}
@@ -422,7 +487,7 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
               className="flex items-center space-x-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-base shadow-xl shadow-blue-600/30 border border-blue-400/30 transform active:scale-95 transition cursor-pointer"
             >
               <Play className="w-5 h-5 fill-current" />
-              <span>Start Focus</span>
+              <span>Start Focus ({formatDurationBadge(selectedDuration)})</span>
             </button>
           ) : (
             <button
@@ -436,15 +501,32 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
           )}
 
           {isRunning && (
-            <button
-              id="focus-add-five-btn"
-              onClick={handleAddFiveMinutes}
-              className="p-3.5 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-blue-400 hover:text-blue-300 border border-slate-700/80 transition flex items-center gap-1 text-xs font-bold cursor-pointer"
-              title="Add 5 Minutes"
-            >
-              <Plus className="w-4 h-4" />
-              <span>5m</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                id="focus-add-5m-btn"
+                onClick={() => handleAddMinutes(5)}
+                className="px-3 py-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-blue-400 hover:text-blue-300 border border-slate-700/80 transition text-xs font-bold cursor-pointer"
+                title="Add 5 Minutes"
+              >
+                +5m
+              </button>
+              <button
+                id="focus-add-15m-btn"
+                onClick={() => handleAddMinutes(15)}
+                className="px-3 py-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-blue-400 hover:text-blue-300 border border-slate-700/80 transition text-xs font-bold cursor-pointer"
+                title="Add 15 Minutes"
+              >
+                +15m
+              </button>
+              <button
+                id="focus-add-1h-btn"
+                onClick={() => handleAddMinutes(60)}
+                className="px-3 py-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-blue-400 hover:text-blue-300 border border-slate-700/80 transition text-xs font-bold cursor-pointer"
+                title="Add 1 Hour"
+              >
+                +1h
+              </button>
+            </div>
           )}
 
           {isRunning && (
@@ -460,29 +542,211 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
         </div>
       </div>
 
-      {/* Preset Duration Selector */}
+      {/* Interactive Hours + Minutes Duration Setup */}
       {!isRunning && (
-        <div className="w-full space-y-2">
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-            Select Duration (Minutes)
-          </label>
-          <div className="grid grid-cols-5 gap-2 w-full">
-            {durations.map((d) => (
-              <button
-                key={d}
-                onClick={() => {
-                  AudioService.playTap();
-                  setSelectedDuration(d);
-                }}
-                className={`py-2.5 rounded-2xl font-bold text-xs border transition cursor-pointer ${
-                  selectedDuration === d
-                    ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
-                    : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:bg-slate-800'
-                }`}
-              >
-                {d}m
-              </button>
-            ))}
+        <div className="w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-4 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="p-1.5 rounded-lg bg-blue-600/20 text-blue-400">
+                <Clock className="w-4 h-4 shrink-0" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Custom Focus Duration (Hours + Minutes)
+                </h3>
+                <p className="text-[10px] text-slate-400">Set exact study session duration in hours and minutes</p>
+              </div>
+            </div>
+            
+            <div className="text-right">
+              <span className="text-xs font-mono font-bold text-blue-400 px-2.5 py-1 rounded-xl bg-blue-950/80 border border-blue-800/50 inline-block">
+                {hours}h {minutes}m ({selectedDuration}m)
+              </span>
+            </div>
+          </div>
+
+          {/* Dual Hours & Minutes Stepper Controls */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Hours Control Box */}
+            <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Timer className="w-3.5 h-3.5 text-blue-400" />
+                  Hours (0 - 12h)
+                </span>
+                <span className="text-sm font-mono font-black text-white">{hours} {hours === 1 ? 'Hour' : 'Hours'}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSetHours(hours - 1)}
+                  disabled={hours <= 0}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white transition cursor-pointer shrink-0"
+                  title="Decrease 1 Hour"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+
+                <input
+                  type="range"
+                  min="0"
+                  max="12"
+                  step="1"
+                  value={hours}
+                  onChange={(e) => handleSetHours(parseInt(e.target.value) || 0)}
+                  className="w-full accent-blue-500 bg-slate-800 h-2 rounded-lg cursor-pointer"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => handleSetHours(hours + 1)}
+                  disabled={hours >= 12}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white transition cursor-pointer shrink-0"
+                  title="Increase 1 Hour"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Quick Hours Pills */}
+              <div className="flex items-center justify-between gap-1 pt-1">
+                {[0, 1, 2, 3, 4, 6].map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => handleSetHours(h)}
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition border cursor-pointer ${
+                      hours === h
+                        ? 'bg-blue-600 text-white border-blue-500'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'
+                    }`}
+                  >
+                    {h}h
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Minutes Control Box */}
+            <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-blue-400" />
+                  Minutes (0 - 55m)
+                </span>
+                <span className="text-sm font-mono font-black text-white">{minutes} Mins</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSetMinutes(minutes - 5)}
+                  disabled={minutes <= 0 && hours <= 0}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white transition cursor-pointer shrink-0"
+                  title="Decrease 5 Minutes"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+
+                <input
+                  type="range"
+                  min="0"
+                  max="55"
+                  step="5"
+                  value={minutes}
+                  onChange={(e) => handleSetMinutes(parseInt(e.target.value) || 0)}
+                  className="w-full accent-blue-500 bg-slate-800 h-2 rounded-lg cursor-pointer"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => handleSetMinutes(minutes + 5)}
+                  disabled={minutes >= 55}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white transition cursor-pointer shrink-0"
+                  title="Increase 5 Minutes"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Quick Minutes Pills */}
+              <div className="flex items-center justify-between gap-1 pt-1">
+                {[0, 15, 25, 30, 45, 50].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => handleSetMinutes(m)}
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition border cursor-pointer ${
+                      minutes === m
+                        ? 'bg-blue-600 text-white border-blue-500'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'
+                    }`}
+                  >
+                    {m}m
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Preset Buttons (Minutes & Hours) */}
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                Popular Study Presets
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleAdjustDuration(-15)}
+                  className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer"
+                >
+                  -15m
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAdjustDuration(15)}
+                  className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer"
+                >
+                  +15m
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAdjustDuration(30)}
+                  className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 transition cursor-pointer"
+                >
+                  +30m
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAdjustDuration(60)}
+                  className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-950 hover:bg-blue-900 text-blue-300 border border-blue-800/60 transition cursor-pointer"
+                >
+                  +1 hr
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 w-full">
+              {presetDurations.map((item) => (
+                <button
+                  key={item.mins}
+                  type="button"
+                  onClick={() => {
+                    AudioService.playTap();
+                    setSelectedDuration(item.mins);
+                  }}
+                  className={`py-2 px-1 rounded-xl font-bold text-xs border transition text-center cursor-pointer ${
+                    selectedDuration === item.mins
+                      ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
+                      : 'bg-slate-950/70 text-slate-400 border-slate-800 hover:bg-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

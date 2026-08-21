@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bell, CheckCheck, X, Sparkles, Clock, AlertCircle } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Bell, CheckCheck, X, Sparkles, Clock, Trash2, Check } from 'lucide-react';
 import { AppNotification } from '../../types';
 import { StorageService } from '../../services/storage';
 import { AudioService } from '../../services/audioService';
@@ -18,8 +18,21 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   notifications,
   onRefresh,
 }) => {
-  if (!isOpen) return null;
   const safeNotifs = notifications || [];
+
+  // When user opens/views the notifications modal, auto-mark unread notifications as read
+  // so the red badge number clears automatically
+  useEffect(() => {
+    if (isOpen) {
+      const hasUnread = safeNotifs.some((n) => !n.read);
+      if (hasUnread) {
+        StorageService.markNotificationsRead();
+        onRefresh();
+      }
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const handleMarkAllRead = () => {
     AudioService.playTap();
@@ -27,11 +40,25 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     onRefresh();
   };
 
+  const handleClearAll = () => {
+    AudioService.playTap();
+    StorageService.saveNotifications([]);
+    onRefresh();
+  };
+
+  const handleNotificationClick = (notifId: string) => {
+    const notifs = StorageService.getNotifications().map((n) =>
+      n.id === notifId ? { ...n, read: true } : n
+    );
+    StorageService.saveNotifications(notifs);
+    onRefresh();
+  };
+
   const handleSendTestReminder = async () => {
     AudioService.playTap();
     await NotificationService.requestPermission();
     NotificationService.send('📚 FocusGuard Study Reminder', {
-      body: 'Time for your planned 45-minute deep focus session. Your future self will thank you!',
+      body: 'Time for your planned deep focus study session. Your future self will thank you!',
       tag: 'task',
     });
     onRefresh();
@@ -48,15 +75,18 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             </div>
             <div>
               <h2 className="font-bold text-sm text-white">Study Notifications</h2>
-              <p className="text-[11px] text-slate-400">Reminders, Goals & Session Alerts</p>
+              <p className="text-[11px] text-slate-400">All notifications marked as checked</p>
             </div>
           </div>
           <button
             onClick={() => {
               AudioService.playTap();
+              // Ensure all read on close as well
+              StorageService.markNotificationsRead();
+              onRefresh();
               onClose();
             }}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -66,21 +96,32 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         <div className="px-4 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between text-xs">
           <button
             onClick={handleSendTestReminder}
-            className="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition"
+            className="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Trigger Test Reminder
+            Send Test Alert
           </button>
 
-          {safeNotifs.length > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              className="text-slate-400 hover:text-slate-200 flex items-center gap-1 transition"
-            >
-              <CheckCheck className="w-3.5 h-3.5" />
-              Mark all as read
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {safeNotifs.length > 0 && (
+              <>
+                <button
+                  onClick={handleMarkAllRead}
+                  className="text-slate-400 hover:text-slate-200 flex items-center gap-1 transition cursor-pointer"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  Mark read
+                </button>
+                <button
+                  onClick={handleClearAll}
+                  className="text-rose-400 hover:text-rose-300 flex items-center gap-1 transition cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Clear
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* List */}
@@ -88,8 +129,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           {safeNotifs.length === 0 ? (
             <div className="text-center py-10 space-y-2 text-slate-500">
               <Bell className="w-8 h-8 mx-auto text-slate-600" />
-              <p className="text-xs font-semibold">No study notifications yet</p>
-              <p className="text-[11px]">Session milestones and task reminders will appear here.</p>
+              <p className="text-xs font-semibold">No notifications</p>
+              <p className="text-[11px]">Session milestones, streak updates, and task reminders appear here.</p>
             </div>
           ) : (
             safeNotifs.map((notif) => {
@@ -101,10 +142,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               return (
                 <div
                   key={notif.id}
-                  className={`p-3.5 rounded-2xl border transition space-y-1 ${
+                  onClick={() => handleNotificationClick(notif.id)}
+                  className={`p-3.5 rounded-2xl border transition space-y-1 cursor-pointer select-none ${
                     notif.read
-                      ? 'bg-slate-800/40 border-slate-800/80 text-slate-300'
-                      : 'bg-blue-950/30 border-blue-800/50 text-white shadow-sm shadow-blue-900/20'
+                      ? 'bg-slate-800/40 border-slate-800/80 text-slate-300 hover:bg-slate-800/60'
+                      : 'bg-blue-950/30 border-blue-800/50 text-white shadow-sm shadow-blue-900/20 hover:bg-blue-950/50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -127,18 +169,25 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-slate-800 bg-slate-900 flex justify-end">
+        <div className="p-3 border-t border-slate-800 bg-slate-900 flex items-center justify-between">
+          <span className="text-[11px] text-slate-400 flex items-center gap-1">
+            <Check className="w-3.5 h-3.5 text-emerald-400" />
+            Badge count cleared
+          </span>
           <button
             onClick={() => {
               AudioService.playTap();
+              StorageService.markNotificationsRead();
+              onRefresh();
               onClose();
             }}
-            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
+            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition cursor-pointer"
           >
-            Close
+            Done
           </button>
         </div>
       </div>
     </div>
   );
 };
+

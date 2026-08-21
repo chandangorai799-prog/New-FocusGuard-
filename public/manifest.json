@@ -16,28 +16,16 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/icon-192.svg",
-      "type": "image/svg+xml",
+      "src": "/icons/icon-192.png",
+      "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "/icon-192.svg",
-      "type": "image/svg+xml",
-      "sizes": "192x192",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icon-512.svg",
-      "type": "image/svg+xml",
+      "src": "/icons/icon-512.png",
+      "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.svg",
-      "type": "image/svg+xml",
-      "sizes": "512x512",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
   "shortcuts": [
@@ -46,28 +34,28 @@
       "short_name": "Smart Focus",
       "description": "Launch deep work focus session with distraction shield",
       "url": "/?tab=focus",
-      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Pomodoro Timer",
       "short_name": "Pomodoro",
       "description": "Start a 25-minute Pomodoro study interval",
       "url": "/?tab=pomodoro",
-      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "AI Study Planner",
       "short_name": "Planner",
       "description": "Generate customized exam and syllabus study schedules",
       "url": "/?tab=planner",
-      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "AI Assistant",
       "short_name": "AI Tutor",
       "description": "Ask doubts, summarize concepts, and quiz yourself",
       "url": "/?tab=assistant",
-      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

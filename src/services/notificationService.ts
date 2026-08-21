@@ -98,12 +98,29 @@ export const NotificationService = {
     }
   },
 
-  // Daily 5:00 PM (17:00) Focus Reminder trigger
-  async sendDaily5PMFocusReminder(isTest: boolean = false): Promise<void> {
+  // Helper to format "HH:MM" 24hr string to friendly 12hr "5:00 PM" format
+  formatTime(timeStr?: string): string {
+    if (!timeStr) return '5:00 PM';
+    const [hStr, mStr] = timeStr.split(':');
+    const h = parseInt(hStr, 10);
+    const m = parseInt(mStr, 10);
+    if (isNaN(h) || isNaN(m)) return timeStr;
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    const minFormatted = m < 10 ? `0${m}` : m;
+    return `${hour12}:${minFormatted} ${period}`;
+  },
+
+  // Daily Scheduled Focus Reminder trigger (Customizable time)
+  async sendDailyScheduledFocusReminder(customTimeStr?: string, isTest: boolean = false): Promise<void> {
+    const profile = StorageService.getProfile();
+    const scheduledTime = customTimeStr || profile.studyReminderTime || '17:00';
+    const formattedTime = this.formatTime(scheduledTime);
+
     const title = '🎯 FocusGuard: Ready to Focus?';
     const message = isTest
-      ? '🔔 Lock Screen Test: Har shaam 5:00 baje FocusGuard ka ye alert aayega — Ready to start your deep study session!'
-      : 'Shaam ke 5:00 baje ho gaye hain! 🌇 Apne study goal ko achieve karne ke liye Focus Mode start karein.';
+      ? `🔔 Lock Screen Test: Har roz ${formattedTime} par FocusGuard ka ye alert aayega — Ready to start your study session!`
+      : `Aapka set kiya hua focus time ho gaya hai (${formattedTime})! 🌇 Ready to focus? Tap karein aur session start karein.`;
 
     // Play subtle alert tone if audio context active
     try {
@@ -114,14 +131,23 @@ export const NotificationService = {
 
     await this.send(title, {
       body: message,
-      tag: 'focusguard-daily-5pm',
+      tag: `focusguard-daily-reminder`,
       requireInteraction: true,
       data: { url: '/?tab=focus' },
     });
   },
 
+  // Backward compatibility alias
+  async sendDaily5PMFocusReminder(isTest: boolean = false): Promise<void> {
+    return this.sendDailyScheduledFocusReminder('17:00', isTest);
+  },
+
   // Test Notification with a delay so user can lock their phone or switch to another app
-  scheduleTestLockScreenNotification(delaySeconds: number = 3, onCountdown?: (remaining: number) => void): () => void {
+  scheduleTestLockScreenNotification(
+    delaySeconds: number = 3,
+    onCountdown?: (remaining: number) => void,
+    customTime?: string
+  ): () => void {
     let remaining = delaySeconds;
     if (onCountdown) onCountdown(remaining);
 
@@ -131,14 +157,14 @@ export const NotificationService = {
 
       if (remaining <= 0) {
         clearInterval(interval);
-        this.sendDaily5PMFocusReminder(true);
+        this.sendDailyScheduledFocusReminder(customTime, true);
       }
     }, 1000);
 
     return () => clearInterval(interval);
   },
 
-  // Check and trigger daily reminder based on User Profile setting (default 17:00 / 5 PM)
+  // Check and trigger daily reminder based on User Profile setting (customizable time)
   checkDailyFocusReminder(): void {
     if (typeof window === 'undefined') return;
 
@@ -148,7 +174,7 @@ export const NotificationService = {
       const isReminderEnabled = profile.studyReminderEnabled !== false;
       if (!isReminderEnabled) return;
 
-      const reminderTime = profile.studyReminderTime || '17:00'; // Default 5:00 PM (17:00)
+      const reminderTime = profile.studyReminderTime || '17:00';
       const [targetHourStr, targetMinStr] = reminderTime.split(':');
       const targetHour = parseInt(targetHourStr, 10);
       const targetMin = parseInt(targetMinStr, 10);
@@ -165,8 +191,8 @@ export const NotificationService = {
       if (currentHour === targetHour && currentMin >= targetMin && currentMin <= targetMin + 15) {
         if (lastTriggeredDate !== todayStr) {
           localStorage.setItem(DAILY_REMINDER_LAST_DATE_KEY, todayStr);
-          this.sendDaily5PMFocusReminder(false);
-          console.log(`[FocusGuard] Daily ${reminderTime} focus reminder triggered for ${todayStr}`);
+          this.sendDailyScheduledFocusReminder(reminderTime, false);
+          console.log(`[FocusGuard] Daily custom ${reminderTime} focus reminder triggered for ${todayStr}`);
         }
       }
     } catch (e) {

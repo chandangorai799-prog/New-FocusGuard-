@@ -50,19 +50,34 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     StorageService.saveProfile(updated);
   };
 
+  const handleTimeChange = (newTime: string) => {
+    AudioService.playTap();
+    const updated = {
+      ...profile,
+      studyReminderEnabled: true,
+      studyReminderTime: newTime,
+    };
+    setProfile(updated);
+    StorageService.saveProfile(updated);
+  };
+
   const handleTestLockScreenAlert = async () => {
     AudioService.playTap();
     const granted = await NotificationService.requestPermission();
     setPermissionGranted(granted);
 
     // 3-second countdown so user can lock phone or switch apps to test
-    NotificationService.scheduleTestLockScreenNotification(3, (remaining) => {
-      setCountdown(remaining);
-      if (remaining <= 0) {
-        setCountdown(null);
-        onRefresh();
-      }
-    });
+    NotificationService.scheduleTestLockScreenNotification(
+      3,
+      (remaining) => {
+        setCountdown(remaining);
+        if (remaining <= 0) {
+          setCountdown(null);
+          onRefresh();
+        }
+      },
+      profile.studyReminderTime || '17:00'
+    );
   };
 
   const handleMarkAllRead = () => {
@@ -85,9 +100,20 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     onRefresh();
   };
 
+  const formattedReminderTime = NotificationService.formatTime(profile.studyReminderTime || '17:00');
+
+  const timePresets = [
+    { label: '6:00 AM', time: '06:00', icon: '🌅' },
+    { label: '9:00 AM', time: '09:00', icon: '☀️' },
+    { label: '2:00 PM', time: '14:00', icon: '🌤️' },
+    { label: '5:00 PM', time: '17:00', icon: '🌇' },
+    { label: '8:00 PM', time: '20:00', icon: '🌙' },
+    { label: '10:00 PM', time: '22:00', icon: '🌌' },
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col text-slate-100 max-h-[88vh]">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col text-slate-100 max-h-[90vh]">
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
           <div className="flex items-center space-x-2.5">
@@ -96,7 +122,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             </div>
             <div>
               <h2 className="font-bold text-sm text-white">Study Notifications</h2>
-              <p className="text-[11px] text-slate-400">Lock Screen & Evening 5:00 PM Reminders</p>
+              <p className="text-[11px] text-slate-400">Lock Screen & Customizable Focus Reminders</p>
             </div>
           </div>
           <button
@@ -113,8 +139,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           </button>
         </div>
 
-        {/* Daily 5:00 PM Focus & Lock Screen Reminder Banner */}
-        <div className="p-3.5 bg-gradient-to-r from-blue-950/70 via-indigo-950/60 to-purple-950/70 border-b border-blue-800/40 space-y-2.5">
+        {/* Daily Custom Focus & Lock Screen Reminder Banner */}
+        <div className="p-3.5 bg-gradient-to-r from-blue-950/70 via-indigo-950/60 to-purple-950/70 border-b border-blue-800/40 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 min-w-0">
               <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center shrink-0">
@@ -122,13 +148,13 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               </div>
               <div className="min-w-0">
                 <h3 className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
-                  <span>Daily 5:00 PM Focus Reminder</span>
+                  <span>Daily Focus Reminder</span>
                   <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold rounded border border-emerald-500/30">
-                    Active
+                    {profile.studyReminderEnabled !== false ? `${formattedReminderTime} Active` : 'Off'}
                   </span>
                 </h3>
                 <p className="text-[11px] text-slate-300">
-                  Har shaam 5:00 baje alert: <strong>"Ready to focus?"</strong>
+                  Har roz <strong>{formattedReminderTime}</strong> par alert: <strong>"Ready to focus?"</strong>
                 </p>
               </div>
             </div>
@@ -144,11 +170,52 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             </label>
           </div>
 
+          {/* Time Selector & Presets */}
+          <div className="p-2.5 bg-slate-950/70 rounded-xl border border-blue-900/40 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium text-slate-300 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-blue-400" />
+                Notification Ka Exact Time:
+              </span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="time"
+                  value={profile.studyReminderTime || '17:00'}
+                  onChange={(e) => handleTimeChange(e.target.value)}
+                  className="bg-slate-900 border border-blue-500/50 rounded-lg px-2 py-1 text-xs text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Quick Preset Buttons */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+              {timePresets.map((preset) => {
+                const isSelected = (profile.studyReminderTime || '17:00') === preset.time;
+                return (
+                  <button
+                    key={preset.time}
+                    type="button"
+                    onClick={() => handleTimeChange(preset.time)}
+                    className={`px-2 py-1 rounded-lg text-[10.5px] font-medium whitespace-nowrap transition flex items-center gap-1 cursor-pointer shrink-0 ${
+                      isSelected
+                        ? 'bg-blue-600 text-white font-bold shadow-sm shadow-blue-500/30'
+                        : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-800'
+                    }`}
+                  >
+                    <span>{preset.icon}</span>
+                    <span>{preset.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Lock Screen Test Button */}
           <div className="p-2.5 bg-slate-950/60 rounded-xl border border-blue-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
             <div className="text-[11px] text-slate-300 flex items-center gap-1.5">
               <Smartphone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span>
-                Lock screen & background apps alert: <strong>{permissionGranted ? 'Granted 🟢' : 'Needs Permission 🔔'}</strong>
+                Lock screen & background alert: <strong>{permissionGranted ? 'Granted 🟢' : 'Needs Permission 🔔'}</strong>
               </span>
             </div>
 
@@ -165,7 +232,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Test Lock Screen Alert</span>
+                  <span>Test {formattedReminderTime} Alert</span>
                 </>
               )}
             </button>

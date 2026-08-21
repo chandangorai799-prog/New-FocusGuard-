@@ -432,6 +432,7 @@ export default function App() {
                   onUpdateSettings={handleUpdateFocusSettings}
                   onFocusStateChange={setIsFocusSessionActive}
                   onOpenShield={() => setShowShieldModal(true)}
+                  onUpdateProfile={handleUpdateProfile}
                 />
               )}
 

@@ -98,13 +98,28 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
   const handleTestLockScreenNotification = async () => {
     AudioService.playTap();
     await NotificationService.requestPermission();
-    NotificationService.scheduleTestLockScreenNotification(3, (remaining) => {
-      setCountdown(remaining);
-      if (remaining <= 0) {
-        setCountdown(null);
-      }
-    });
+    NotificationService.scheduleTestLockScreenNotification(
+      3,
+      (remaining) => {
+        setCountdown(remaining);
+        if (remaining <= 0) {
+          setCountdown(null);
+        }
+      },
+      studyReminderTime
+    );
   };
+
+  const formattedReminder = NotificationService.formatTime(studyReminderTime);
+
+  const timePresets = [
+    { label: '6:00 AM', time: '06:00', icon: '🌅' },
+    { label: '9:00 AM', time: '09:00', icon: '☀️' },
+    { label: '2:00 PM', time: '14:00', icon: '🌤️' },
+    { label: '5:00 PM', time: '17:00', icon: '🌇' },
+    { label: '8:00 PM', time: '20:00', icon: '🌙' },
+    { label: '10:00 PM', time: '22:00', icon: '🌌' },
+  ];
 
   return (
     <div className="w-full space-y-6 pb-12">
@@ -352,18 +367,18 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
             )}
           </div>
 
-          {/* Daily 5:00 PM Focus Reminder & Lock Screen Notification */}
+          {/* Daily Customizable Focus Reminder & Lock Screen Notification */}
           <div className="p-3.5 bg-gradient-to-r from-blue-950/50 via-indigo-950/40 to-slate-900 rounded-2xl border border-blue-500/30 space-y-3">
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1 pr-2">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <h4 className="text-xs font-bold text-white">Daily 5:00 PM Focus Alert</h4>
+                  <h4 className="text-xs font-bold text-white">Daily Focus Reminder ({formattedReminder})</h4>
                   <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-semibold border border-amber-500/30">
-                    Lock Screen & Other Apps
+                    Lock Screen & Background
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-300 break-words mt-0.5">
-                  Har shaam 5:00 baje FocusGuard alert bhejega: <strong>"Ready to focus?"</strong>
+                  Har roz <strong>{formattedReminder}</strong> par FocusGuard alert bhejega: <strong>"Ready to focus?"</strong>
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer shrink-0">
@@ -377,46 +392,61 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
               </label>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pt-1 border-t border-slate-800/80 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 text-[11px]">Scheduled Time:</span>
-                <input
-                  type="time"
-                  value={studyReminderTime}
-                  onChange={(e) => setStudyReminderTime(e.target.value)}
-                  className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-blue-500"
-                />
+            {/* Time Selector & Presets */}
+            <div className="p-2.5 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-[11px]">Notification Time:</span>
+                  <input
+                    type="time"
+                    value={studyReminderTime}
+                    onChange={(e) => setStudyReminderTime(e.target.value)}
+                    className="bg-slate-900 border border-blue-500/50 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none focus:border-blue-400"
+                  />
+                  <span className="text-xs font-bold text-blue-300">{formattedReminder}</span>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setStudyReminderTime('17:00')}
-                  className={`text-[10px] px-2 py-0.5 rounded transition ${
-                    studyReminderTime === '17:00'
-                      ? 'bg-blue-600/40 text-blue-300 border border-blue-500/40 font-bold'
-                      : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-                  }`}
+                  onClick={handleTestLockScreenNotification}
+                  disabled={countdown !== null}
+                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-[11px] font-bold transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 >
-                  5:00 PM (Shaam)
+                  {countdown !== null ? (
+                    <>
+                      <Clock className="w-3.5 h-3.5 animate-spin" />
+                      <span>Lock Phone ({countdown}s)...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Test {formattedReminder} Alert</span>
+                    </>
+                  )}
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={handleTestLockScreenNotification}
-                disabled={countdown !== null}
-                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-[11px] font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
-              >
-                {countdown !== null ? (
-                  <>
-                    <Clock className="w-3.5 h-3.5 animate-spin" />
-                    <span>Lock Phone Now ({countdown}s)...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Test Lock Screen Alert</span>
-                  </>
-                )}
-              </button>
+              {/* Presets */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+                {timePresets.map((preset) => {
+                  const isSelected = studyReminderTime === preset.time;
+                  return (
+                    <button
+                      key={preset.time}
+                      type="button"
+                      onClick={() => setStudyReminderTime(preset.time)}
+                      className={`px-2 py-1 rounded-lg text-[10.5px] font-medium whitespace-nowrap transition flex items-center gap-1 cursor-pointer shrink-0 ${
+                        isSelected
+                          ? 'bg-blue-600 text-white font-bold shadow-sm'
+                          : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
+                      }`}
+                    >
+                      <span>{preset.icon}</span>
+                      <span>{preset.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

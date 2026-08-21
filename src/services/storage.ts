@@ -95,7 +95,7 @@ const DEFAULT_PROFILE: UserProfile = {
   androidNotificationsEnabled: true,
   xp: 450,
   level: 4,
-  studyReminderTime: '19:00',
+  studyReminderTime: '17:00', // 5:00 PM Evening Focus Alert
   studyReminderEnabled: true,
 };
 

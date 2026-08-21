@@ -59,6 +59,9 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
 
   const [soundEnabled, setSoundEnabled] = useState<boolean>(focusSettings.soundEnabled ?? true);
   const [hapticEnabled, setHapticEnabled] = useState<boolean>(focusSettings.hapticFeedback ?? true);
+  const [studyReminderEnabled, setStudyReminderEnabled] = useState<boolean>(profile.studyReminderEnabled !== false);
+  const [studyReminderTime, setStudyReminderTime] = useState<string>(profile.studyReminderTime || '17:00');
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
   const [showLoadSampleConfirm, setShowLoadSampleConfirm] = useState<boolean>(false);
@@ -75,6 +78,8 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
       dailyStudyTargetMinutes: Math.round(targetHours * 60),
       dailyPomodoroTarget: pomodoroTarget,
       preferredStudyTime: preferredTime,
+      studyReminderEnabled,
+      studyReminderTime,
     };
 
     onUpdateProfile(updatedProfile);
@@ -90,12 +95,14 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
     setTimeout(() => setSavedSuccess(false), 2500);
   };
 
-  const handleTestNotification = async () => {
+  const handleTestLockScreenNotification = async () => {
     AudioService.playTap();
     await NotificationService.requestPermission();
-    NotificationService.send('🛡️ FocusGuard Notification Test', {
-      body: 'Notifications are working! You will receive focus milestone and study reminders.',
-      tag: 'test',
+    NotificationService.scheduleTestLockScreenNotification(3, (remaining) => {
+      setCountdown(remaining);
+      if (remaining <= 0) {
+        setCountdown(null);
+      }
     });
   };
 
@@ -345,17 +352,85 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
             )}
           </div>
 
+          {/* Daily 5:00 PM Focus Reminder & Lock Screen Notification */}
+          <div className="p-3.5 bg-gradient-to-r from-blue-950/50 via-indigo-950/40 to-slate-900 rounded-2xl border border-blue-500/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1 pr-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h4 className="text-xs font-bold text-white">Daily 5:00 PM Focus Alert</h4>
+                  <span className="text-[9px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-semibold border border-amber-500/30">
+                    Lock Screen & Other Apps
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 break-words mt-0.5">
+                  Har shaam 5:00 baje FocusGuard alert bhejega: <strong>"Ready to focus?"</strong>
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={studyReminderEnabled}
+                  onChange={(e) => setStudyReminderEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pt-1 border-t border-slate-800/80 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-[11px]">Scheduled Time:</span>
+                <input
+                  type="time"
+                  value={studyReminderTime}
+                  onChange={(e) => setStudyReminderTime(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setStudyReminderTime('17:00')}
+                  className={`text-[10px] px-2 py-0.5 rounded transition ${
+                    studyReminderTime === '17:00'
+                      ? 'bg-blue-600/40 text-blue-300 border border-blue-500/40 font-bold'
+                      : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  5:00 PM (Shaam)
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTestLockScreenNotification}
+                disabled={countdown !== null}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-[11px] font-bold transition shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                {countdown !== null ? (
+                  <>
+                    <Clock className="w-3.5 h-3.5 animate-spin" />
+                    <span>Lock Phone Now ({countdown}s)...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Test Lock Screen Alert</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
           <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <h4 className="text-xs font-semibold text-white">Push Notifications</h4>
-              <p className="text-[11px] text-slate-400 break-words">Send test notification to verify browser/device support</p>
+              <h4 className="text-xs font-semibold text-white">System Push Notifications</h4>
+              <p className="text-[11px] text-slate-400 break-words">Allow browser and device system permission for notifications on lock screen</p>
             </div>
             <button
               type="button"
-              onClick={handleTestNotification}
+              onClick={handleTestLockScreenNotification}
               className="px-3 py-1.5 rounded-xl bg-blue-600/30 text-blue-300 border border-blue-500/40 text-xs font-semibold hover:bg-blue-600/50 transition shrink-0 cursor-pointer self-start sm:self-auto"
             >
-              Test Alert
+              Test Notification
             </button>
           </div>
 

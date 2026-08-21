@@ -5,6 +5,7 @@ import { StorageService } from './services/storage';
 import { AudioService } from './services/audioService';
 import { AndroidBlockerService } from './services/androidBlockerService';
 import { ThemeService } from './services/themeService';
+import { NotificationService } from './services/notificationService';
 import { useTheme } from './context/ThemeContext';
 import { Header } from './components/common/Header';
 import { BottomNav } from './components/common/BottomNav';
@@ -90,6 +91,28 @@ export default function App() {
     // 3. Periodic check every 30 seconds for midnight rollover
     const interval = setInterval(handleDailyTaskCleanup, 30000);
 
+    // 4. Start Daily 5:00 PM Focus Reminder Scheduler Ticker
+    const stopReminderTicker = NotificationService.startDailyReminderTicker();
+
+    // 5. Listen for Service Worker Notification Click events
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'NOTIFICATION_CLICKED') {
+        setCurrentTab('focus');
+      }
+    };
+
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    }
+
+    // Check URL parameters if opened from notification click
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'focus' || params.get('action') === 'start_focus') {
+        setCurrentTab('focus');
+      }
+    }
+
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('focus', onFocus);
 
@@ -97,6 +120,10 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('focus', onFocus);
       clearInterval(interval);
+      stopReminderTicker();
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+      }
     };
   }, []);
 
@@ -302,7 +329,8 @@ export default function App() {
           onOpenNotifications={() => {
             AudioService.playTap();
             StorageService.markNotificationsRead();
-            setNotifications(StorageService.getNotifications());
+            const updatedNotifs = StorageService.getNotifications();
+            setNotifications(updatedNotifs);
             setShowNotificationsModal(true);
           }}
           onOpenThemeModal={() => {

@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
-import { Bell, CheckCheck, X, Sparkles, Clock, Trash2, Check } from 'lucide-react';
-import { AppNotification } from '../../types';
+import React, { useEffect, useState } from 'react';
+import { Bell, CheckCheck, X, Sparkles, Clock, Trash2, Check, Smartphone, Flame, ShieldAlert, Timer } from 'lucide-react';
+import { AppNotification, UserProfile } from '../../types';
 import { StorageService } from '../../services/storage';
 import { AudioService } from '../../services/audioService';
 import { NotificationService } from '../../services/notificationService';
@@ -19,11 +19,16 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   onRefresh,
 }) => {
   const safeNotifs = notifications || [];
+  const [profile, setProfile] = useState<UserProfile>(StorageService.getProfile());
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [permissionGranted, setPermissionGranted] = useState<boolean>(NotificationService.isPermissionGranted());
 
   // When user opens/views the notifications modal, auto-mark unread notifications as read
   // so the red badge number clears automatically
   useEffect(() => {
     if (isOpen) {
+      setProfile(StorageService.getProfile());
+      setPermissionGranted(NotificationService.isPermissionGranted());
       const hasUnread = safeNotifs.some((n) => !n.read);
       if (hasUnread) {
         StorageService.markNotificationsRead();
@@ -33,6 +38,32 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const handleToggleReminder = (enabled: boolean) => {
+    AudioService.playTap();
+    const updated = {
+      ...profile,
+      studyReminderEnabled: enabled,
+      studyReminderTime: profile.studyReminderTime || '17:00',
+    };
+    setProfile(updated);
+    StorageService.saveProfile(updated);
+  };
+
+  const handleTestLockScreenAlert = async () => {
+    AudioService.playTap();
+    const granted = await NotificationService.requestPermission();
+    setPermissionGranted(granted);
+
+    // 3-second countdown so user can lock phone or switch apps to test
+    NotificationService.scheduleTestLockScreenNotification(3, (remaining) => {
+      setCountdown(remaining);
+      if (remaining <= 0) {
+        setCountdown(null);
+        onRefresh();
+      }
+    });
+  };
 
   const handleMarkAllRead = () => {
     AudioService.playTap();
@@ -54,19 +85,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     onRefresh();
   };
 
-  const handleSendTestReminder = async () => {
-    AudioService.playTap();
-    await NotificationService.requestPermission();
-    NotificationService.send('📚 FocusGuard Study Reminder', {
-      body: 'Time for your planned deep focus study session. Your future self will thank you!',
-      tag: 'task',
-    });
-    onRefresh();
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col text-slate-100 max-h-[85vh]">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col text-slate-100 max-h-[88vh]">
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
           <div className="flex items-center space-x-2.5">
@@ -75,7 +96,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             </div>
             <div>
               <h2 className="font-bold text-sm text-white">Study Notifications</h2>
-              <p className="text-[11px] text-slate-400">All notifications marked as checked</p>
+              <p className="text-[11px] text-slate-400">Lock Screen & Evening 5:00 PM Reminders</p>
             </div>
           </div>
           <button
@@ -92,15 +113,68 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           </button>
         </div>
 
+        {/* Daily 5:00 PM Focus & Lock Screen Reminder Banner */}
+        <div className="p-3.5 bg-gradient-to-r from-blue-950/70 via-indigo-950/60 to-purple-950/70 border-b border-blue-800/40 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center shrink-0">
+                <Timer className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
+                  <span>Daily 5:00 PM Focus Reminder</span>
+                  <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold rounded border border-emerald-500/30">
+                    Active
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-300">
+                  Har shaam 5:00 baje alert: <strong>"Ready to focus?"</strong>
+                </p>
+              </div>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
+              <input
+                type="checkbox"
+                checked={profile.studyReminderEnabled !== false}
+                onChange={(e) => handleToggleReminder(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          <div className="p-2.5 bg-slate-950/60 rounded-xl border border-blue-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+            <div className="text-[11px] text-slate-300 flex items-center gap-1.5">
+              <Smartphone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span>
+                Lock screen & background apps alert: <strong>{permissionGranted ? 'Granted 🟢' : 'Needs Permission 🔔'}</strong>
+              </span>
+            </div>
+
+            <button
+              onClick={handleTestLockScreenAlert}
+              disabled={countdown !== null}
+              className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800/60 text-white text-[11px] font-bold shadow-md shadow-blue-900/30 transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+            >
+              {countdown !== null ? (
+                <>
+                  <Clock className="w-3.5 h-3.5 animate-spin" />
+                  <span>Lock Phone Now ({countdown}s)...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Test Lock Screen Alert</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
         {/* Action bar */}
         <div className="px-4 py-2 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between text-xs">
-          <button
-            onClick={handleSendTestReminder}
-            className="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            Send Test Alert
-          </button>
+          <span className="text-slate-400 text-[11px]">Recent Alerts History:</span>
 
           <div className="flex items-center gap-3">
             {safeNotifs.length > 0 && (
@@ -129,8 +203,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           {safeNotifs.length === 0 ? (
             <div className="text-center py-10 space-y-2 text-slate-500">
               <Bell className="w-8 h-8 mx-auto text-slate-600" />
-              <p className="text-xs font-semibold">No notifications</p>
-              <p className="text-[11px]">Session milestones, streak updates, and task reminders appear here.</p>
+              <p className="text-xs font-semibold">No notification history</p>
+              <p className="text-[11px]">Daily 5:00 PM focus alerts, streak milestones, and task reminders appear here.</p>
             </div>
           ) : (
             safeNotifs.map((notif) => {

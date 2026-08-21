@@ -94,9 +94,87 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Listen for message events (e.g. skipWaiting trigger from client)
+// Listen for message events (e.g. skipWaiting or show system notification from client)
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+
+  if (event.data && event.data.type === 'SHOW_SYSTEM_NOTIFICATION') {
+    const { title, options } = event.data;
+    const notificationOptions = {
+      body: options?.body || 'Ready to focus? Time for your evening study session!',
+      icon: options?.icon || '/icon-192.svg',
+      badge: options?.badge || '/icon-192.svg',
+      vibrate: options?.vibrate || [200, 100, 200, 100, 200],
+      tag: options?.tag || 'focusguard-daily-5pm',
+      renotify: true,
+      requireInteraction: true,
+      data: options?.data || { url: '/?tab=focus' },
+      actions: [
+        { action: 'start_focus', title: '🎯 Start Focus' },
+        { action: 'snooze_10m', title: '⏳ 10 Min Later' },
+      ],
+    };
+
+    self.registration.showNotification(title || '🎯 FocusGuard: Ready to Focus?', notificationOptions);
+  }
+});
+
+// Notification Click Handler: opens/focuses the app and starts focus session
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const action = event.action;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If client is already open, focus it
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.focus();
+          client.postMessage({
+            type: 'NOTIFICATION_CLICKED',
+            action: action || 'start_focus',
+            tag: event.notification.tag,
+          });
+          return;
+        }
+      }
+      // If not open, open FocusGuard with focus tab
+      if (self.clients.openWindow) {
+        return self.clients.openWindow('/?tab=focus');
+      }
+    })
+  );
+});
+
+// Push Event: Handle background push messages
+self.addEventListener('push', (event) => {
+  let data = { title: '🎯 FocusGuard: Ready to Focus?', body: 'Evening study time! Open FocusGuard to begin.' };
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (e) {
+    if (event.data) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body || 'Shaam ke 5 baje ho gaye hain! Ready to focus?',
+    icon: '/icon-192.svg',
+    badge: '/icon-192.svg',
+    vibrate: [200, 100, 200, 100, 200],
+    tag: 'focusguard-daily-5pm',
+    renotify: true,
+    requireInteraction: true,
+    data: { url: '/?tab=focus' },
+    actions: [
+      { action: 'start_focus', title: '🚀 Start Focus' },
+      { action: 'snooze_10m', title: '⏳ Snooze 10m' },
+    ],
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title || '🎯 FocusGuard: Ready to Focus?', options));
 });

@@ -1111,11 +1111,17 @@ export const StorageService = {
     this.clearChatHistory();
   },
 
-  resetAllData(): void {
-    this.resetAllUserData();
-  },
-
-  resetAllUserData(): {
+  /**
+   * Clears all demo and user data to complete ZERO:
+   * - 0 tasks
+   * - 0 focus sessions
+   * - 0 exams
+   * - 0 study plans
+   * - 0 quiz results
+   * - 0 streak, 0 XP, Level 1
+   * - 0 blocked apps
+   */
+  clearAllDemoDataToZero(): {
     profile: UserProfile;
     tasks: TaskItem[];
     sessions: FocusSessionRecord[];
@@ -1137,7 +1143,138 @@ export const StorageService = {
       }
     });
 
-    // 2. Clone fresh pristine default objects
+    // 2. Clone zeroed clean objects
+    const zeroProfile: UserProfile = {
+      name: 'Student',
+      avatar: '🎓',
+      gradeOrGoal: 'General Studies',
+      dailyStudyTargetMinutes: 120,
+      dailyPomodoroTarget: 4,
+      preferredStudyTime: 'Evening',
+      primarySubject: 'Self Study',
+      onboardingCompleted: true,
+      theme: 'dark',
+      streakCount: 0,
+      bestStreak: 0,
+      lastActiveDate: new Date().toISOString().split('T')[0],
+      soundVolume: 0.8,
+      hapticFeedback: true,
+      blockedAppsCount: 0,
+      androidNotificationsEnabled: true,
+      xp: 0,
+      level: 1,
+      studyReminderTime: '19:00',
+      studyReminderEnabled: true,
+    };
+
+    const zeroTasks: TaskItem[] = [];
+    const zeroSessions: FocusSessionRecord[] = [];
+    const zeroStudyPlans: StudyPlan[] = [];
+    const zeroExams: ExamItem[] = [];
+    const zeroQuizResults: QuizResult[] = [];
+    const zeroPomodoroSettings: PomodoroSettings = JSON.parse(JSON.stringify(DEFAULT_POMODORO_SETTINGS));
+    const zeroFocusSettings: FocusSettings = JSON.parse(JSON.stringify(DEFAULT_FOCUS_SETTINGS));
+    const zeroBlockedApps: BlockedApp[] = DEFAULT_BLOCKED_APPS.map((app) => ({
+      ...app,
+      isBlocked: false,
+    }));
+
+    const zeroNotifications: AppNotification[] = [
+      {
+        id: 'notif-zero-' + Date.now(),
+        title: '✨ All Demo Data Cleared (Zero State)',
+        message: 'All demo tasks, sessions, exams, and stats have been reset to 0. You are ready for a clean start!',
+        timestamp: new Date().toISOString(),
+        type: 'system',
+        read: false,
+      },
+    ];
+
+    const zeroChatMessages: ChatMessage[] = [
+      {
+        id: 'msg-welcome',
+        sender: 'assistant',
+        timestamp: new Date().toISOString(),
+        mode: 'chat',
+        text: `👋 **Welcome to FocusGuard AI Assistant!**\n\nAll demo data has been cleared to 0. I am your personalized study tutor and exam coach.\n\n**Quick Actions:**\n- 🎯 **Generate Practice Quiz / MCQs**\n- 📝 **Summarize Notes & Lectures**\n- 💡 **Explain Difficult Topics in Simple Terms**\n- 🗂️ **Generate Flashcards**\n- 📋 **Create High-Yield Revision Notes**\n\nHow can I help you today?`,
+      },
+    ];
+
+    // 3. Write zero defaults into localStorage safely
+    try {
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(zeroProfile));
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(zeroTasks));
+      localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(zeroSessions));
+      localStorage.setItem(STORAGE_KEYS.STUDY_PLANS, JSON.stringify(zeroStudyPlans));
+      localStorage.setItem(STORAGE_KEYS.POMODORO_SETTINGS, JSON.stringify(zeroPomodoroSettings));
+      localStorage.setItem(STORAGE_KEYS.FOCUS_SETTINGS, JSON.stringify(zeroFocusSettings));
+      localStorage.setItem(STORAGE_KEYS.EXAMS, JSON.stringify(zeroExams));
+      localStorage.setItem(STORAGE_KEYS.QUIZ_RESULTS, JSON.stringify(zeroQuizResults));
+      localStorage.setItem(STORAGE_KEYS.BLOCKED_APPS, JSON.stringify(zeroBlockedApps));
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(zeroNotifications));
+      localStorage.setItem(STORAGE_KEYS.CHAT_MESSAGES, JSON.stringify(zeroChatMessages));
+    } catch (e) {
+      console.error('Failed to initialize zero state into storage:', e);
+    }
+
+    return {
+      profile: zeroProfile,
+      tasks: zeroTasks,
+      sessions: zeroSessions,
+      studyPlans: zeroStudyPlans,
+      focusSettings: zeroFocusSettings,
+      pomodoroSettings: zeroPomodoroSettings,
+      chatMessages: zeroChatMessages,
+      notifications: zeroNotifications,
+      exams: zeroExams,
+      quizResults: zeroQuizResults,
+      blockedApps: zeroBlockedApps,
+    };
+  },
+
+  resetAllData(): void {
+    this.clearAllDemoDataToZero();
+  },
+
+  resetAllUserData(): {
+    profile: UserProfile;
+    tasks: TaskItem[];
+    sessions: FocusSessionRecord[];
+    studyPlans: StudyPlan[];
+    focusSettings: FocusSettings;
+    pomodoroSettings: PomodoroSettings;
+    chatMessages: ChatMessage[];
+    notifications: AppNotification[];
+    exams: ExamItem[];
+    quizResults: QuizResult[];
+    blockedApps: BlockedApp[];
+  } {
+    return this.clearAllDemoDataToZero();
+  },
+
+  loadSeedDemoData(): {
+    profile: UserProfile;
+    tasks: TaskItem[];
+    sessions: FocusSessionRecord[];
+    studyPlans: StudyPlan[];
+    focusSettings: FocusSettings;
+    pomodoroSettings: PomodoroSettings;
+    chatMessages: ChatMessage[];
+    notifications: AppNotification[];
+    exams: ExamItem[];
+    quizResults: QuizResult[];
+    blockedApps: BlockedApp[];
+  } {
+    // 1. Safely remove each user storage key individually
+    Object.values(STORAGE_KEYS).forEach((key) => {
+      try {
+        localStorage.removeItem(key);
+      } catch (err) {
+        console.warn(`Failed to remove key ${key}:`, err);
+      }
+    });
+
+    // 2. Clone fresh pristine default seed objects
     const freshProfile: UserProfile = JSON.parse(JSON.stringify(DEFAULT_PROFILE));
     const freshTasks: TaskItem[] = JSON.parse(JSON.stringify(INITIAL_TASKS));
     const freshSessions: FocusSessionRecord[] = [];
@@ -1149,9 +1286,9 @@ export const StorageService = {
     const freshBlockedApps: BlockedApp[] = JSON.parse(JSON.stringify(DEFAULT_BLOCKED_APPS));
     const freshNotifications: AppNotification[] = [
       {
-        id: 'notif-reset-' + Date.now(),
-        title: '✨ FocusGuard Ready to Study',
-        message: 'Your study dashboard, focus shield, and tasks have been reset to pristine default values.',
+        id: 'notif-sample-' + Date.now(),
+        title: '📚 Sample Demo Data Loaded',
+        message: 'Sample tasks, subjects, and study schedule loaded for demonstration.',
         timestamp: new Date().toISOString(),
         type: 'system',
         read: false,
@@ -1167,7 +1304,7 @@ export const StorageService = {
       },
     ];
 
-    // 3. Write clean defaults into localStorage safely
+    // 3. Write seed defaults into localStorage safely
     try {
       localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(freshProfile));
       localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(freshTasks));
@@ -1181,7 +1318,7 @@ export const StorageService = {
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(freshNotifications));
       localStorage.setItem(STORAGE_KEYS.CHAT_MESSAGES, JSON.stringify(freshChatMessages));
     } catch (e) {
-      console.error('Failed to initialize fresh defaults into storage:', e);
+      console.error('Failed to initialize seed defaults into storage:', e);
     }
 
     return {
@@ -1200,6 +1337,6 @@ export const StorageService = {
   },
 
   resetToDefaults() {
-    return this.resetAllUserData();
+    return this.clearAllDemoDataToZero();
   },
 };

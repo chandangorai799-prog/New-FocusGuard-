@@ -37,8 +37,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   };
 
   return (
-    <nav className="w-full bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 text-slate-400 select-none z-30 sticky bottom-0 py-1.5 px-2">
-      <div className="max-w-lg mx-auto flex items-center justify-around">
+    <nav
+      id="focusguard-bottom-nav"
+      className="fixed bottom-0 left-0 right-0 z-40 w-full bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 text-slate-400 select-none shadow-2xl shadow-black/80"
+      style={{
+        paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom, 0px))',
+      }}
+    >
+      <div className="w-full max-w-4xl lg:max-w-5xl mx-auto px-2 py-1 flex items-center justify-around">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive =
@@ -54,7 +60,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               key={tab.id}
               id={`nav-tab-${tab.id}`}
               onClick={() => handleSelect(tab.id)}
-              className={`relative flex flex-col items-center justify-center py-1.5 px-2.5 rounded-2xl transition-all duration-200 ${
+              className={`relative flex flex-col items-center justify-center py-1.5 px-2.5 rounded-2xl transition-all duration-200 cursor-pointer ${
                 isActive
                   ? 'text-blue-400 font-semibold scale-105'
                   : 'text-slate-400 hover:text-slate-200'
@@ -82,7 +88,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 )}
               </div>
 
-              <span className="text-[10px] sm:text-[11px] mt-1 tracking-tight">{tab.label}</span>
+              <span className="text-[10px] sm:text-[11px] mt-0.5 tracking-tight">{tab.label}</span>
             </button>
           );
         })}

@@ -40,7 +40,7 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({
   const totalPomodoros = completedSessions.filter((s) => s.mode === 'pomodoro').length;
   const completedTasks = safeTasks.filter((t) => t.completed).length;
   const pendingTasks = safeTasks.filter((t) => !t.completed).length;
-  const taskCompletionRate = safeTasks.length > 0 ? Math.round((completedTasks / safeTasks.length) * 100) : 100;
+  const taskCompletionRate = safeTasks.length > 0 ? Math.round((completedTasks / safeTasks.length) * 100) : 0;
 
   // Subject-wise Breakdown
   const subjectMap: Record<string, number> = {};

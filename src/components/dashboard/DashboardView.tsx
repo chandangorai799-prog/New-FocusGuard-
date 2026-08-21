@@ -69,12 +69,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const todayTasks = safeTasks.filter((t) => !t.dueDate || t.dueDate <= todayStr);
   const completedTasksToday = todayTasks.filter((t) => t.completed).length;
-  const totalTasksToday = todayTasks.length || 1;
+  const totalTasksTodayCount = todayTasks.length;
 
   // Productivity Score formula: combination of study time vs target (60%) + task completion rate (40%)
   const targetMinutes = profile?.dailyStudyTargetMinutes || 180;
   const timeProgress = Math.min(1, totalFocusMinutesToday / targetMinutes);
-  const taskProgress = completedTasksToday / totalTasksToday;
+  const taskProgress = totalTasksTodayCount > 0 ? completedTasksToday / totalTasksTodayCount : 0;
   const productivityScore = Math.min(100, Math.round((timeProgress * 0.6 + taskProgress * 0.4) * 100));
 
   // Format hours/minutes
@@ -255,10 +255,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
           <p className="text-xl font-extrabold text-white tracking-tight break-words">
-            {completedTasksToday}/{totalTasksToday}
+            {completedTasksToday}/{totalTasksTodayCount}
           </p>
           <span className="text-[10px] text-emerald-400 flex items-center gap-1 truncate">
-            {Math.round((completedTasksToday / totalTasksToday) * 100)}% done
+            {totalTasksTodayCount > 0 ? `${Math.round((completedTasksToday / totalTasksTodayCount) * 100)}% done` : 'No tasks yet'}
           </span>
         </motion.div>
 
@@ -420,60 +420,76 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="space-y-2 w-full">
-          {todayTasks.slice(0, 4).map((task) => (
-            <div
-              key={task.id}
-              onClick={() => onToggleTask(task.id)}
-              className={`w-full p-3 rounded-2xl border transition flex items-center justify-between gap-2.5 cursor-pointer ${
-                task.completed
-                  ? 'bg-slate-900/40 border-slate-800/60 opacity-60'
-                  : 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60'
-              }`}
-            >
-              <div className="flex items-center space-x-3 min-w-0 flex-1 pr-1">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleTask(task.id);
-                  }}
-                  className="text-slate-400 hover:text-blue-400 shrink-0"
-                >
-                  {task.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-slate-500" />
-                  )}
-                </button>
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={`text-xs font-semibold break-words ${
-                      task.completed ? 'line-through text-slate-500' : 'text-slate-100'
-                    }`}
-                  >
-                    {task.title}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                    <span className="px-1.5 py-0.2 rounded bg-slate-700/60 text-slate-300 shrink-0">{task.category}</span>
-                    {task.dueTime && <span className="shrink-0">Due {task.dueTime}</span>}
-                    {task.estimatedMinutes && <span className="shrink-0">{task.estimatedMinutes}m est.</span>}
-                  </div>
-                </div>
-              </div>
-
-              <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                  task.priority === 'High'
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                    : task.priority === 'Medium'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'bg-slate-700 text-slate-300'
+          {todayTasks.length === 0 ? (
+            <div className="p-4 rounded-2xl bg-slate-950/40 border border-dashed border-slate-800 text-center space-y-2">
+              <p className="text-xs text-slate-400 font-medium">No tasks scheduled for today</p>
+              <button
+                type="button"
+                onClick={() => {
+                  AudioService.playTap();
+                  onNavigateToTab('tasks');
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-xs font-semibold border border-blue-500/30 transition cursor-pointer"
+              >
+                <span>+ Add Your First Task</span>
+              </button>
+            </div>
+          ) : (
+            todayTasks.slice(0, 4).map((task) => (
+              <div
+                key={task.id}
+                onClick={() => onToggleTask(task.id)}
+                className={`w-full p-3 rounded-2xl border transition flex items-center justify-between gap-2.5 cursor-pointer ${
+                  task.completed
+                    ? 'bg-slate-900/40 border-slate-800/60 opacity-60'
+                    : 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60'
                 }`}
               >
-                {task.priority}
-              </span>
-            </div>
-          ))}
+                <div className="flex items-center space-x-3 min-w-0 flex-1 pr-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleTask(task.id);
+                    }}
+                    className="text-slate-400 hover:text-blue-400 shrink-0"
+                  >
+                    {task.completed ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-slate-500" />
+                    )}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={`text-xs font-semibold break-words ${
+                        task.completed ? 'line-through text-slate-500' : 'text-slate-100'
+                      }`}
+                    >
+                      {task.title}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                      <span className="px-1.5 py-0.2 rounded bg-slate-700/60 text-slate-300 shrink-0">{task.category}</span>
+                      {task.dueTime && <span className="shrink-0">Due {task.dueTime}</span>}
+                      {task.estimatedMinutes && <span className="shrink-0">{task.estimatedMinutes}m est.</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                    task.priority === 'High'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      : task.priority === 'Medium'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {task.priority}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

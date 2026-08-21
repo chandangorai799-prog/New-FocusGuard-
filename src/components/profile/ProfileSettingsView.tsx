@@ -32,6 +32,7 @@ interface ProfileSettingsViewProps {
   onUpdateFocusSettings: (settings: FocusSettings) => void;
   onUpdatePomodoroSettings: (settings: PomodoroSettings) => void;
   onResetAllData: () => void;
+  onLoadSampleDemo?: () => void;
   onRestartOnboarding: () => void;
   onOpenShield?: () => void;
   onOpenThemeModal?: () => void;
@@ -45,6 +46,7 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
   onUpdateFocusSettings,
   onUpdatePomodoroSettings,
   onResetAllData,
+  onLoadSampleDemo,
   onRestartOnboarding,
   onOpenShield,
   onOpenThemeModal,
@@ -59,7 +61,8 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
   const [hapticEnabled, setHapticEnabled] = useState<boolean>(focusSettings.hapticFeedback ?? true);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
-  const [resetSuccess, setResetSuccess] = useState<boolean>(false);
+  const [showLoadSampleConfirm, setShowLoadSampleConfirm] = useState<boolean>(false);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -398,49 +401,70 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
 
       {/* Data Management & Onboarding Reset */}
       <div className="w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-3.5">
-        <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-          App Management & Reset
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+            Data Management & Reset
+          </h3>
+          <span className="text-[10px] text-slate-400 font-medium">Zero data or load samples</span>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <button
-            onClick={() => {
-              AudioService.playTap();
-              onRestartOnboarding();
-            }}
-            className="w-full py-2.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center justify-center gap-2 transition cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
-            <span className="truncate">Replay Onboarding Guide</span>
-          </button>
-
-          <button
+            id="btn-clear-demo"
             onClick={() => {
               AudioService.playTap();
               setShowResetConfirm(true);
             }}
-            className="w-full py-2.5 px-4 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 text-xs font-semibold border border-rose-800/40 flex items-center justify-center gap-2 transition cursor-pointer"
+            className="w-full py-2.5 px-3 rounded-2xl bg-rose-950/50 hover:bg-rose-900/70 text-rose-300 text-xs font-bold border border-rose-800/50 flex items-center justify-center gap-2 transition cursor-pointer shadow-sm"
           >
-            <Trash2 className="w-4 h-4 shrink-0" />
-            <span className="truncate">Reset Demo Data</span>
+            <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
+            <span className="truncate">Clear Demo Data (Zero All)</span>
+          </button>
+
+          {onLoadSampleDemo && (
+            <button
+              id="btn-load-sample-demo"
+              onClick={() => {
+                AudioService.playTap();
+                setShowLoadSampleConfirm(true);
+              }}
+              className="w-full py-2.5 px-3 rounded-2xl bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-300 text-xs font-semibold border border-indigo-800/40 flex items-center justify-center gap-2 transition cursor-pointer"
+            >
+              <BookOpen className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span className="truncate">Load Sample Demo</span>
+            </button>
+          )}
+
+          <button
+            id="btn-replay-onboarding"
+            onClick={() => {
+              AudioService.playTap();
+              onRestartOnboarding();
+            }}
+            className="w-full py-2.5 px-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center justify-center gap-2 transition cursor-pointer"
+          >
+            <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
+            <span className="truncate">Replay Guide</span>
           </button>
         </div>
 
-        {resetSuccess && (
+        {resetSuccessMessage && (
           <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-2xl flex items-center gap-2 text-emerald-300 text-xs font-semibold">
             <Check className="w-4 h-4 shrink-0" />
-            <span>FocusGuard reset successfully to fresh default blueprint!</span>
+            <span>{resetSuccessMessage}</span>
           </div>
         )}
 
         {showResetConfirm && (
-          <div className="p-4 bg-slate-950/90 border border-rose-500/40 rounded-2xl space-y-3 shadow-xl">
+          <div className="p-4 bg-slate-950/95 border border-rose-500/40 rounded-2xl space-y-3 shadow-2xl">
             <div className="flex items-start gap-2.5">
-              <Trash2 className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 shrink-0 mt-0.5 border border-rose-500/20">
+                <Trash2 className="w-5 h-5" />
+              </div>
               <div className="min-w-0 flex-1">
-                <h4 className="text-xs font-bold text-white">Confirm Reset Application Data?</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  This will reset your focus sessions, study plans, and task logs back to clean initial demo state.
+                <h4 className="text-xs font-bold text-white">Clear All Demo Data to Zero?</h4>
+                <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                  This will set all your tasks, focus sessions, study plans, exams, streak, and XP to <strong>0</strong> so you can start with a completely clean slate.
                 </p>
               </div>
             </div>
@@ -458,12 +482,52 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
                   AudioService.playTap();
                   setShowResetConfirm(false);
                   onResetAllData();
-                  setResetSuccess(true);
-                  setTimeout(() => setResetSuccess(false), 3000);
+                  setResetSuccessMessage('All demo data cleared to 0 successfully!');
+                  setTimeout(() => setResetSuccessMessage(null), 3000);
                 }}
-                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-md shadow-rose-900/30 cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-md shadow-rose-900/40 cursor-pointer flex items-center gap-1.5"
               >
-                Yes, Reset All Data
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Yes, Clear All to 0</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showLoadSampleConfirm && (
+          <div className="p-4 bg-slate-950/95 border border-indigo-500/40 rounded-2xl space-y-3 shadow-2xl">
+            <div className="flex items-start gap-2.5">
+              <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 shrink-0 mt-0.5 border border-indigo-500/20">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-xs font-bold text-white">Load Sample Demo Tasks & Exams?</h4>
+                <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                  This will populate the app with pre-built sample engineering tasks, exams, and study subjects for testing.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowLoadSampleConfirm(false)}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  AudioService.playTap();
+                  setShowLoadSampleConfirm(false);
+                  if (onLoadSampleDemo) onLoadSampleDemo();
+                  setResetSuccessMessage('Sample demo data loaded successfully!');
+                  setTimeout(() => setResetSuccessMessage(null), 3000);
+                }}
+                className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-md shadow-indigo-900/40 cursor-pointer flex items-center gap-1.5"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Yes, Load Sample Data</span>
               </button>
             </div>
           </div>

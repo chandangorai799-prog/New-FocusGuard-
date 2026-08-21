@@ -176,7 +176,7 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
     'Ask your FocusGuard study tutor anything...';
 
   return (
-    <div className="flex flex-col h-[calc(100vh-145px)] max-h-[850px] space-y-3 pb-2">
+    <div className="flex flex-col h-[calc(100vh-190px)] min-h-[450px] max-h-[850px] space-y-3 pb-1">
       {/* Header & Subject Context */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 flex items-center justify-between shadow-md shrink-0">
         <div className="flex items-center space-x-2.5">

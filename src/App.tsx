@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { NavigationTab, UserProfile, TaskItem, FocusSessionRecord, StudyPlan, FocusSettings, PomodoroSettings, ChatMessage, AppNotification } from './types';
 import { StorageService } from './services/storage';
 import { AudioService } from './services/audioService';
+import { AndroidBlockerService } from './services/androidBlockerService';
 import { ThemeService } from './services/themeService';
 import { useTheme } from './context/ThemeContext';
 import { Header } from './components/common/Header';
@@ -182,11 +183,11 @@ export default function App() {
 
   const handleResetAllData = () => {
     try {
-      // 1. Reset all underlying storage and timers
+      // 1. Reset all underlying storage and timers to ZERO
       AudioService.stopAmbient();
       AudioService.playSuccess();
       AndroidBlockerService.resetSessionToIdle();
-      const freshData = StorageService.resetAllUserData();
+      const freshData = StorageService.clearAllDemoDataToZero();
 
       // 2. Immediately update all React state variables
       setProfile(freshData.profile);
@@ -200,11 +201,10 @@ export default function App() {
       setIsFocusSessionActive(false);
       setFocusInitialDuration(undefined);
 
-      // 3. Navigate back to dashboard with fresh clean slate
+      // 3. Navigate back to dashboard with clean zero state
       setCurrentTab('dashboard');
     } catch (e) {
       console.error('Failed to reset all data:', e);
-      // Fallback reload if browser allows
       try {
         setProfile(StorageService.getProfile());
         setTasks(StorageService.getTasks());
@@ -212,6 +212,30 @@ export default function App() {
         setStudyPlans(StorageService.getStudyPlans());
         setCurrentTab('dashboard');
       } catch {}
+    }
+  };
+
+  const handleLoadSampleDemo = () => {
+    try {
+      AudioService.stopAmbient();
+      AudioService.playSuccess();
+      AndroidBlockerService.resetSessionToIdle();
+      const seedData = StorageService.loadSeedDemoData();
+
+      setProfile(seedData.profile);
+      setTasks(seedData.tasks);
+      setSessions(seedData.sessions);
+      setStudyPlans(seedData.studyPlans);
+      setFocusSettings(seedData.focusSettings);
+      setPomodoroSettings(seedData.pomodoroSettings);
+      setChatMessages(seedData.chatMessages);
+      setNotifications(seedData.notifications);
+      setIsFocusSessionActive(false);
+      setFocusInitialDuration(undefined);
+
+      setCurrentTab('dashboard');
+    } catch (e) {
+      console.error('Failed to load sample demo data:', e);
     }
   };
 
@@ -296,7 +320,12 @@ export default function App() {
         )}
 
         {/* Main Viewport Container */}
-        <main className="flex-1 w-full p-3.5 sm:p-5 md:p-6 overflow-y-auto pb-24">
+        <main
+          className="flex-1 w-full p-3.5 sm:p-5 md:p-6 overflow-y-auto"
+          style={{
+            paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))',
+          }}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={currentTab}
@@ -391,6 +420,7 @@ export default function App() {
                   onUpdateFocusSettings={handleUpdateFocusSettings}
                   onUpdatePomodoroSettings={handleUpdatePomodoroSettings}
                   onResetAllData={handleResetAllData}
+                  onLoadSampleDemo={handleLoadSampleDemo}
                   onRestartOnboarding={() => setShowOnboarding(true)}
                   onOpenShield={() => handleTabChange('appBlocker')}
                   onOpenThemeModal={() => setShowThemeModal(true)}

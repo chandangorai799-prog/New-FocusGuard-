@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { TaskItem, TaskCategory, TaskPriority } from '../../types';
 import { AudioService } from '../../services/audioService';
+import { getLocalDateString } from '../../services/storage';
 
 interface TaskManagerViewProps {
   tasks: TaskItem[];
@@ -49,7 +50,7 @@ export const TaskManagerView: React.FC<TaskManagerViewProps> = ({
   const [title, setTitle] = useState<string>('');
   const [category, setCategory] = useState<TaskCategory>('Study');
   const [priority, setPriority] = useState<TaskPriority>('Medium');
-  const [dueDate, setDueDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState<string>(getLocalDateString());
   const [dueTime, setDueTime] = useState<string>('18:00');
   const [estimatedMinutes, setEstimatedMinutes] = useState<number>(45);
   const [notes, setNotes] = useState<string>('');
@@ -63,7 +64,7 @@ export const TaskManagerView: React.FC<TaskManagerViewProps> = ({
     setTitle('');
     setCategory('Study');
     setPriority('Medium');
-    setDueDate(new Date().toISOString().split('T')[0]);
+    setDueDate(getLocalDateString());
     setDueTime('18:00');
     setEstimatedMinutes(45);
     setNotes('');
@@ -123,7 +124,7 @@ export const TaskManagerView: React.FC<TaskManagerViewProps> = ({
   };
 
   // Filter & Sort Logic
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const safeTasks = tasks || [];
 
   const filteredTasks = safeTasks.filter((t) => {

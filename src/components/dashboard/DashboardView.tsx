@@ -22,6 +22,7 @@ import {
 import { UserProfile, TaskItem, FocusSessionRecord, StudyPlan, NavigationTab } from '../../types';
 import { AudioService } from '../../services/audioService';
 import { THEME_PRESETS } from '../../services/themeService';
+import { getLocalDateString } from '../../services/storage';
 
 interface DashboardViewProps {
   profile: UserProfile;
@@ -57,7 +58,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   // Today's stats calculation
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const safeSessions = sessions || [];
   const safeTasks = tasks || [];
   const safePlans = studyPlans || [];

@@ -39,7 +39,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   return (
     <nav
       id="focusguard-bottom-nav"
-      className="fixed bottom-0 left-0 right-0 z-40 w-full bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 text-slate-400 select-none shadow-2xl shadow-black/80"
+      className="fixed bottom-0 left-0 right-0 z-40 w-full bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 text-slate-400 select-none shadow-2xl shadow-black/80 transform-gpu"
       style={{
         paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom, 0px))',
       }}

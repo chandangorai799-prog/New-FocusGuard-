@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { FocusSessionRecord, TaskItem, UserProfile } from '../../types';
 import { AudioService } from '../../services/audioService';
+import { getLocalDateString } from '../../services/storage';
 
 interface StatisticsViewProps {
   sessions: FocusSessionRecord[];
@@ -63,7 +64,7 @@ export const StatisticsView: React.FC<StatisticsViewProps> = ({
   const last7DaysData = Array.from({ length: 7 }).map((_, i) => {
     const d = new Date();
     d.setDate(today.getDate() - (6 - i));
-    const dStr = d.toISOString().split('T')[0];
+    const dStr = getLocalDateString(d);
     const daySessions = completedSessions.filter((s) => s.date === dStr);
     const mins = daySessions.reduce((acc, s) => acc + s.durationMinutes, 0);
 

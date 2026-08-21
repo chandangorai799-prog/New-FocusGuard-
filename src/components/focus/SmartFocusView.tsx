@@ -16,6 +16,13 @@ import {
   Star,
   Music,
   Plus,
+  Radio,
+  Headphones,
+  CloudRain,
+  Waves,
+  Zap,
+  Disc,
+  Compass,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FocusSessionRecord, FocusSettings, UserProfile, FocusSessionState } from '../../types';
@@ -50,8 +57,9 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [sessionStatus, setSessionStatus] = useState<FocusSessionState>('IDLE');
   const [subject, setSubject] = useState<string>(profile.primarySubject || 'Deep Study');
-  const [ambientSound, setAmbientSound] = useState<'none' | 'binaural' | 'rain' | 'whitenoise' | 'waves'>(settings.ambientSound || 'binaural');
-  const [ambientVolume, setAmbientVolume] = useState<number>(settings.ambientVolume || 0.4);
+  const [ambientSound, setAmbientSound] = useState<'none' | 'binaural' | 'rain' | 'whitenoise' | 'lofi' | 'space' | 'stream' | 'waves'>(settings.ambientSound || 'binaural');
+  const [ambientVolume, setAmbientVolume] = useState<number>(settings.ambientVolume || 0.5);
+  const [isAmbientActive, setIsAmbientActive] = useState<boolean>(false);
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [showReflectionModal, setShowReflectionModal] = useState<boolean>(false);
   const [showPermissionModal, setShowPermissionModal] = useState<boolean>(false);
@@ -146,6 +154,7 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
 
     if (ambientSound !== 'none') {
       AudioService.startAmbient(ambientSound, ambientVolume);
+      setIsAmbientActive(true);
     }
   };
 
@@ -153,6 +162,7 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
     AudioService.playTap();
     setIsRunning(false);
     AudioService.stopAmbient();
+    setIsAmbientActive(false);
     AndroidBlockerService.pauseSession();
   };
 
@@ -161,6 +171,7 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
     setIsRunning(true);
     if (ambientSound !== 'none') {
       AudioService.startAmbient(ambientSound, ambientVolume);
+      setIsAmbientActive(true);
     }
     AndroidBlockerService.resumeSession();
   };
@@ -174,6 +185,7 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
     setIsRunning(false);
     setSessionStatus('IDLE');
     AudioService.stopAmbient();
+    setIsAmbientActive(false);
     AndroidBlockerService.resetSessionToIdle();
     setTimeLeft(selectedDuration * 60);
   };
@@ -235,12 +247,16 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
     setTimeLeft(selectedDuration * 60);
   };
 
-  const handleSoundChange = (newSound: 'none' | 'binaural' | 'rain' | 'whitenoise' | 'waves') => {
+  const handleSoundChange = (newSound: 'none' | 'binaural' | 'rain' | 'whitenoise' | 'lofi' | 'space' | 'stream' | 'waves') => {
     AudioService.playTap();
     setAmbientSound(newSound);
     onUpdateSettings({ ...settings, ambientSound: newSound });
-    if (isRunning) {
+    if (newSound === 'none') {
+      AudioService.stopAmbient();
+      setIsAmbientActive(false);
+    } else {
       AudioService.startAmbient(newSound, ambientVolume);
+      setIsAmbientActive(true);
     }
   };
 
@@ -248,6 +264,19 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
     setAmbientVolume(newVol);
     AudioService.setAmbientVolume(newVol);
     onUpdateSettings({ ...settings, ambientVolume: newVol });
+  };
+
+  const handleToggleAmbient = () => {
+    AudioService.playTap();
+    if (isAmbientActive) {
+      AudioService.stopAmbient();
+      setIsAmbientActive(false);
+    } else {
+      const soundToPlay = ambientSound === 'none' ? 'binaural' : ambientSound;
+      if (ambientSound === 'none') setAmbientSound('binaural');
+      AudioService.startAmbient(soundToPlay, ambientVolume);
+      setIsAmbientActive(true);
+    }
   };
 
   // Format MM:SS
@@ -459,46 +488,91 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
       )}
 
       {/* Ambient Soundscapes Selector */}
-      <div className="w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-3">
+      <div className="w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-4 sm:p-5 space-y-3.5 shadow-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Music className="w-4 h-4 text-blue-400 shrink-0" />
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-              Focus Ambient Soundscape
-            </h3>
+            <div className={`p-1.5 rounded-lg ${isAmbientActive ? 'bg-blue-600/30 text-blue-400 animate-pulse' : 'bg-slate-800 text-slate-400'}`}>
+              <Music className="w-4 h-4 shrink-0" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                Focus Ambient Soundscape
+                {isAmbientActive && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    Playing
+                  </span>
+                )}
+              </h3>
+              <p className="text-[10px] text-slate-400">Zero-bandwidth synthesized focus audio & study beats</p>
+            </div>
           </div>
-          <span className="text-[10px] text-slate-400">Synthesized Zero-Bandwidth</span>
+          
+          <button
+            type="button"
+            onClick={handleToggleAmbient}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
+              isAmbientActive
+                ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500 shadow-sm shadow-blue-600/30'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+            }`}
+          >
+            {isAmbientActive ? (
+              <>
+                <VolumeX className="w-3.5 h-3.5" />
+                <span>Mute</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-3.5 h-3.5" />
+                <span>Play Sound</span>
+              </>
+            )}
+          </button>
         </div>
 
-        <div className="grid grid-cols-5 gap-2 w-full">
+        <div className="grid grid-cols-4 sm:grid-cols-4 gap-2 w-full">
           {[
-            { id: 'none', label: 'Mute', icon: VolumeX },
-            { id: 'binaural', label: '40Hz Gamma', icon: Sparkles },
-            { id: 'rain', label: 'Rain', icon: Volume2 },
-            { id: 'whitenoise', label: 'White Noise', icon: Volume2 },
-            { id: 'waves', label: 'Ocean', icon: Volume2 },
+            { id: 'binaural', label: '40Hz Gamma', sub: 'Hyper-Focus', icon: Sparkles },
+            { id: 'lofi', label: 'Lo-Fi Chill', sub: 'Study Beats', icon: Headphones },
+            { id: 'rain', label: 'Rainfall', sub: 'Calm Drizzle', icon: CloudRain },
+            { id: 'waves', label: 'Ocean Surf', sub: 'Rhythmic Tide', icon: Waves },
+            { id: 'whitenoise', label: 'White Noise', sub: 'Deep Block', icon: Radio },
+            { id: 'space', label: 'Cosmic Pad', sub: 'Deep Drone', icon: Compass },
+            { id: 'stream', label: 'Forest Brook', sub: 'River Flow', icon: Zap },
+            { id: 'none', label: 'Mute Off', sub: 'Silent', icon: VolumeX },
           ].map((item) => {
             const isSelected = ambientSound === item.id;
+            const isCurrentlySounding = isSelected && isAmbientActive && item.id !== 'none';
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => handleSoundChange(item.id as any)}
-                className={`py-2.5 px-1 rounded-2xl text-[11px] font-semibold border transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                className={`py-2.5 px-2 rounded-2xl text-left border transition flex flex-col items-center justify-center gap-1 relative cursor-pointer ${
                   isSelected
-                    ? 'bg-blue-600/30 text-blue-300 border-blue-500/50'
-                    : 'bg-slate-800/60 text-slate-400 border-slate-700/60 hover:bg-slate-800'
+                    ? 'bg-blue-600/25 text-blue-300 border-blue-500/60 shadow-md shadow-blue-600/20'
+                    : 'bg-slate-800/60 text-slate-400 border-slate-700/60 hover:bg-slate-800 hover:text-slate-200'
                 }`}
               >
-                <item.icon className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate w-full text-center">{item.label}</span>
+                {isCurrentlySounding && (
+                  <div className="absolute top-1.5 right-1.5 flex items-end gap-0.5 h-3">
+                    <span className="w-0.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s] h-3" />
+                    <span className="w-0.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s] h-2" />
+                    <span className="w-0.5 bg-blue-400 rounded-full animate-bounce h-2.5" />
+                  </div>
+                )}
+                <item.icon className={`w-4 h-4 shrink-0 ${isSelected ? 'text-blue-400' : 'text-slate-400'}`} />
+                <span className="text-[11px] font-bold truncate w-full text-center leading-tight">{item.label}</span>
+                <span className="text-[9px] text-slate-500 truncate w-full text-center">{item.sub}</span>
               </button>
             );
           })}
         </div>
 
         {ambientSound !== 'none' && (
-          <div className="pt-2 flex items-center space-x-3 text-xs text-slate-400 w-full">
-            <Volume2 className="w-4 h-4 text-slate-500 shrink-0" />
+          <div className="pt-2 flex items-center space-x-3 text-xs text-slate-400 w-full bg-slate-950/40 p-2.5 rounded-2xl border border-slate-800/80">
+            <Volume2 className="w-4 h-4 text-blue-400 shrink-0" />
             <input
               type="range"
               min="0.1"
@@ -506,9 +580,9 @@ export const SmartFocusView: React.FC<SmartFocusViewProps> = ({
               step="0.05"
               value={ambientVolume}
               onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-              className="w-full accent-blue-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer"
+              className="w-full accent-blue-500 bg-slate-800 h-2 rounded-lg cursor-pointer"
             />
-            <span className="text-[10px] w-8 font-mono shrink-0">{Math.round(ambientVolume * 100)}%</span>
+            <span className="text-xs w-9 text-right font-mono font-bold text-blue-300 shrink-0">{Math.round(ambientVolume * 100)}%</span>
           </div>
         )}
       </div>

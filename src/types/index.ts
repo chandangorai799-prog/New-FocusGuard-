@@ -87,7 +87,7 @@ export interface PomodoroSettings {
 export interface FocusSettings {
   defaultDuration: number; // minutes (default 45)
   shieldModeEnabled: boolean;
-  ambientSound: 'none' | 'binaural' | 'rain' | 'whitenoise' | 'lofi' | 'space' | 'stream';
+  ambientSound: 'none' | 'binaural' | 'rain' | 'whitenoise' | 'lofi' | 'space' | 'stream' | 'waves';
   ambientVolume: number; // 0-1
   strictMode: boolean; // lock screen simulation
 }

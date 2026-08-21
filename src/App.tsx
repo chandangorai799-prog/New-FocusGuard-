@@ -57,6 +57,49 @@ export default function App() {
     }
   }, [currentTheme, customAccent]);
 
+  // Automatic Daily Task Reset & Date Rollover Listener
+  // Automatically removes completed tasks from yesterday/earlier upon:
+  // 1. App open / initial load
+  // 2. Foreground return / tab visibility change (after midnight or unlocking phone)
+  // 3. Periodic timer to handle midnight transition while app stays open
+  useEffect(() => {
+    const handleDailyTaskCleanup = () => {
+      const { cleaned, removedCount } = StorageService.cleanExpiredCompletedTasks();
+      if (removedCount > 0) {
+        setTasks(cleaned);
+      }
+      // Keep streak synced with device local date
+      const updatedProfile = StorageService.updateStreak();
+      setProfile(updatedProfile);
+    };
+
+    // 1. Run immediately on mount
+    handleDailyTaskCleanup();
+
+    // 2. Run on visibility / focus change
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleDailyTaskCleanup();
+      }
+    };
+
+    const onFocus = () => {
+      handleDailyTaskCleanup();
+    };
+
+    // 3. Periodic check every 30 seconds for midnight rollover
+    const interval = setInterval(handleDailyTaskCleanup, 30000);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+      clearInterval(interval);
+    };
+  }, []);
+
   // Sub-tabs for bottom nav mapping
   const activeBottomTab: 'dashboard' | 'focus' | 'planner' | 'assistant' | 'tasks' | 'profile' =
     currentTab === 'pomodoro' ? 'focus' :

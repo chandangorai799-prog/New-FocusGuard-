@@ -120,86 +120,146 @@ const DEFAULT_FOCUS_SETTINGS: FocusSettings = {
   strictMode: false,
 };
 
-// Initial Seed Tasks
-const INITIAL_TASKS: TaskItem[] = [
-  {
-    id: 'task-1',
-    title: 'Review Dynamic Programming & Memoization Patterns',
-    category: 'Study',
-    priority: 'High',
-    dueDate: new Date().toISOString().split('T')[0],
-    dueTime: '18:00',
-    completed: true,
-    completedAt: new Date(Date.now() - 3600000).toISOString(),
-    estimatedMinutes: 60,
-    actualMinutesSpent: 55,
-    notes: 'Solve LeetCode #70 (Climbing Stairs) and #322 (Coin Change).',
-    subject: 'Algorithms',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    subtasks: [
-      { id: 'sub-1', title: 'Top-down recursive memoization', completed: true },
-      { id: 'sub-2', title: 'Bottom-up DP table iteration', completed: true },
-      { id: 'sub-3', title: 'Space optimization to O(1)', completed: false },
-    ],
-  },
-  {
-    id: 'task-2',
-    title: 'Complete Linear Algebra Eigenvalues Assignment',
-    category: 'Assignment',
-    priority: 'High',
-    dueDate: new Date().toISOString().split('T')[0],
-    dueTime: '21:30',
-    completed: false,
-    estimatedMinutes: 90,
-    actualMinutesSpent: 25,
-    notes: 'Problems 4.1 through 4.8 from Gilbert Strang textbook.',
-    subject: 'Mathematics',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    subtasks: [
-      { id: 'sub-4', title: 'Find characteristic polynomials', completed: true },
-      { id: 'sub-5', title: 'Compute eigenvectors and eigenspaces', completed: false },
-      { id: 'sub-6', title: 'Diagonalize 3x3 matrix', completed: false },
-    ],
-  },
-  {
-    id: 'task-3',
-    title: 'Operating Systems Process Scheduling Quiz Prep',
-    category: 'Exam',
-    priority: 'Medium',
-    dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    dueTime: '15:00',
-    completed: false,
-    estimatedMinutes: 45,
-    notes: 'Round Robin vs Shortest Job First scheduling algorithms with Gantt charts.',
-    subject: 'Operating Systems',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'task-4',
-    title: 'Summarize Database Normalization Forms (1NF to BCNF)',
-    category: 'Study',
-    priority: 'Medium',
-    dueDate: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
-    dueTime: '20:00',
-    completed: false,
-    estimatedMinutes: 40,
-    notes: 'Create 1-page comparison chart for exam cheat sheet.',
-    subject: 'Database Systems',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'task-5',
-    title: 'Organize study desk & water bottle prep',
-    category: 'Personal',
-    priority: 'Low',
-    dueDate: new Date().toISOString().split('T')[0],
-    completed: true,
-    completedAt: new Date(Date.now() - 7200000).toISOString(),
-    estimatedMinutes: 10,
-    actualMinutesSpent: 10,
-    createdAt: new Date().toISOString(),
-  },
-];
+/**
+ * Device Local Date Helpers
+ * Ensures reliable calendar-day comparisons across all timezones.
+ */
+export function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getLocalDateFromIso(isoString?: string): string | null {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return null;
+  return getLocalDateString(d);
+}
+
+/**
+ * Checks whether a completed task is from a previous calendar day (yesterday or earlier).
+ * - Completed tasks completed today remain visible for the rest of today.
+ * - Incomplete/pending tasks are NEVER removed.
+ */
+export function isTaskExpiredCompleted(task: TaskItem, todayStr: string = getLocalDateString()): boolean {
+  if (!task.completed) {
+    return false;
+  }
+
+  // 1. If completedAt timestamp exists, compare against local today
+  if (task.completedAt) {
+    const completedDate = getLocalDateFromIso(task.completedAt);
+    if (completedDate) {
+      return completedDate < todayStr;
+    }
+  }
+
+  // 2. Fallback if completedAt wasn't recorded: check dueDate
+  if (task.dueDate && task.dueDate < todayStr) {
+    return true;
+  }
+
+  // 3. Fallback: check createdAt
+  if (task.createdAt) {
+    const createdDate = getLocalDateFromIso(task.createdAt);
+    if (createdDate && createdDate < todayStr) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Initial Seed Tasks Generator
+export function getInitialTasks(): TaskItem[] {
+  const today = getLocalDateString();
+  const tomorrow = getLocalDateString(new Date(Date.now() + 86400000));
+  const inTwoDays = getLocalDateString(new Date(Date.now() + 2 * 86400000));
+
+  return [
+    {
+      id: 'task-1',
+      title: 'Review Dynamic Programming & Memoization Patterns',
+      category: 'Study',
+      priority: 'High',
+      dueDate: today,
+      dueTime: '18:00',
+      completed: true,
+      completedAt: new Date().toISOString(),
+      estimatedMinutes: 60,
+      actualMinutesSpent: 55,
+      notes: 'Solve LeetCode #70 (Climbing Stairs) and #322 (Coin Change).',
+      subject: 'Algorithms',
+      createdAt: new Date().toISOString(),
+      subtasks: [
+        { id: 'sub-1', title: 'Top-down recursive memoization', completed: true },
+        { id: 'sub-2', title: 'Bottom-up DP table iteration', completed: true },
+        { id: 'sub-3', title: 'Space optimization to O(1)', completed: false },
+      ],
+    },
+    {
+      id: 'task-2',
+      title: 'Complete Linear Algebra Eigenvalues Assignment',
+      category: 'Assignment',
+      priority: 'High',
+      dueDate: today,
+      dueTime: '21:30',
+      completed: false,
+      estimatedMinutes: 90,
+      actualMinutesSpent: 25,
+      notes: 'Problems 4.1 through 4.8 from Gilbert Strang textbook.',
+      subject: 'Mathematics',
+      createdAt: new Date().toISOString(),
+      subtasks: [
+        { id: 'sub-4', title: 'Find characteristic polynomials', completed: true },
+        { id: 'sub-5', title: 'Compute eigenvectors and eigenspaces', completed: false },
+        { id: 'sub-6', title: 'Diagonalize 3x3 matrix', completed: false },
+      ],
+    },
+    {
+      id: 'task-3',
+      title: 'Operating Systems Process Scheduling Quiz Prep',
+      category: 'Exam',
+      priority: 'Medium',
+      dueDate: tomorrow,
+      dueTime: '15:00',
+      completed: false,
+      estimatedMinutes: 45,
+      notes: 'Round Robin vs Shortest Job First scheduling algorithms with Gantt charts.',
+      subject: 'Operating Systems',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'task-4',
+      title: 'Summarize Database Normalization Forms (1NF to BCNF)',
+      category: 'Study',
+      priority: 'Medium',
+      dueDate: inTwoDays,
+      dueTime: '20:00',
+      completed: false,
+      estimatedMinutes: 40,
+      notes: 'Create 1-page comparison chart for exam cheat sheet.',
+      subject: 'Database Systems',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'task-5',
+      title: 'Organize study desk & water bottle prep',
+      category: 'Personal',
+      priority: 'Low',
+      dueDate: today,
+      completed: true,
+      completedAt: new Date().toISOString(),
+      estimatedMinutes: 10,
+      actualMinutesSpent: 10,
+      createdAt: new Date().toISOString(),
+    },
+  ];
+}
+
+const INITIAL_TASKS: TaskItem[] = getInitialTasks();
 
 // Initial Seed Exams
 const INITIAL_EXAMS: ExamItem[] = [
@@ -389,14 +449,14 @@ export const StorageService = {
 
   updateStreak(): UserProfile {
     const profile = this.getProfile();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const lastActive = profile.lastActiveDate;
 
     if (lastActive === today) {
       return profile;
     }
 
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const yesterday = getLocalDateString(new Date(Date.now() - 86400000));
     let newStreak = profile.streakCount || 0;
 
     if (lastActive === yesterday) {
@@ -422,14 +482,49 @@ export const StorageService = {
   getTasks(): TaskItem[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.TASKS);
+      let list: TaskItem[] = [];
       if (!data) {
-        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(INITIAL_TASKS));
-        return INITIAL_TASKS;
+        list = getInitialTasks();
+      } else {
+        const parsed = JSON.parse(data);
+        list = Array.isArray(parsed) ? parsed : getInitialTasks();
       }
-      const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : INITIAL_TASKS;
+
+      // Automatically filter out tasks completed on previous calendar days
+      const todayStr = getLocalDateString();
+      const cleaned = list.filter((task) => !isTaskExpiredCompleted(task, todayStr));
+
+      if (cleaned.length !== list.length || !data) {
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(cleaned));
+      }
+      return cleaned;
     } catch {
-      return INITIAL_TASKS;
+      return getInitialTasks();
+    }
+  },
+
+  /**
+   * Cleans all tasks completed on yesterday or earlier calendar days.
+   * Today's tasks (completed or pending) and future/past incomplete tasks remain untouched.
+   */
+  cleanExpiredCompletedTasks(todayStr: string = getLocalDateString()): { cleaned: TaskItem[]; removedCount: number } {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.TASKS);
+      if (!data) return { cleaned: [], removedCount: 0 };
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) return { cleaned: [], removedCount: 0 };
+
+      const cleaned = parsed.filter((task: TaskItem) => !isTaskExpiredCompleted(task, todayStr));
+      const removedCount = parsed.length - cleaned.length;
+
+      if (removedCount > 0) {
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(cleaned));
+      }
+
+      return { cleaned, removedCount };
+    } catch (e) {
+      console.error('Failed to clean expired completed tasks:', e);
+      return { cleaned: [], removedCount: 0 };
     }
   },
 
@@ -446,6 +541,9 @@ export const StorageService = {
     const newTask: TaskItem = {
       ...task,
       id: 'task-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      dueDate: task.dueDate || getLocalDateString(),
+      completed: task.completed ?? false,
+      completedAt: task.completed ? (task.completedAt || new Date().toISOString()) : undefined,
       createdAt: new Date().toISOString(),
     };
     tasks.unshift(newTask);
@@ -459,7 +557,23 @@ export const StorageService = {
     const taskUpdates = typeof taskOrId === 'object' ? taskOrId : updates || {};
     const index = tasks.findIndex((t) => t.id === id);
     if (index === -1) return null;
-    tasks[index] = { ...tasks[index], ...taskUpdates };
+
+    const current = tasks[index];
+    const willBeCompleted = taskUpdates.completed !== undefined ? taskUpdates.completed : current.completed;
+    let completedAt = taskUpdates.completedAt !== undefined ? taskUpdates.completedAt : current.completedAt;
+
+    if (willBeCompleted && !completedAt) {
+      completedAt = new Date().toISOString();
+    } else if (!willBeCompleted) {
+      completedAt = undefined;
+    }
+
+    tasks[index] = {
+      ...current,
+      ...taskUpdates,
+      completed: willBeCompleted,
+      completedAt,
+    };
     this.saveTasks(tasks);
     return tasks[index];
   },
@@ -1276,7 +1390,7 @@ export const StorageService = {
 
     // 2. Clone fresh pristine default seed objects
     const freshProfile: UserProfile = JSON.parse(JSON.stringify(DEFAULT_PROFILE));
-    const freshTasks: TaskItem[] = JSON.parse(JSON.stringify(INITIAL_TASKS));
+    const freshTasks: TaskItem[] = getInitialTasks();
     const freshSessions: FocusSessionRecord[] = [];
     const freshStudyPlans: StudyPlan[] = [];
     const freshPomodoroSettings: PomodoroSettings = JSON.parse(JSON.stringify(DEFAULT_POMODORO_SETTINGS));

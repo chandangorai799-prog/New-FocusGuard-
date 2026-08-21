@@ -2,16 +2,20 @@
 
 let audioCtx: AudioContext | null = null;
 
-function getAudioContext(): AudioContext | null {
+export function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
-  if (!audioCtx) {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioContextClass) {
-      audioCtx = new AudioContextClass();
+  try {
+    if (!audioCtx) {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        audioCtx = new AudioContextClass();
+      }
     }
-  }
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => {});
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+  } catch (e) {
+    console.error('AudioContext initialization error:', e);
   }
   return audioCtx;
 }
@@ -22,6 +26,7 @@ interface AmbientState {
   nodes: (AudioNode | number)[];
   gainNode: GainNode | null;
   isPlaying: boolean;
+  intervalIds: number[];
 }
 
 let activeAmbient: AmbientState = {
@@ -29,6 +34,7 @@ let activeAmbient: AmbientState = {
   nodes: [],
   gainNode: null,
   isPlaying: false,
+  intervalIds: [],
 };
 
 export const AudioService = {
@@ -48,6 +54,7 @@ export const AudioService = {
     const ctx = getAudioContext();
     if (!ctx) return;
     try {
+      if (ctx.state === 'suspended') ctx.resume();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
@@ -69,6 +76,7 @@ export const AudioService = {
     const ctx = getAudioContext();
     if (!ctx) return;
     try {
+      if (ctx.state === 'suspended') ctx.resume();
       const now = ctx.currentTime;
       const notes = [587.33, 880, 1174.66]; // D5, A5, D6
       notes.forEach((freq, i) => {
@@ -94,6 +102,7 @@ export const AudioService = {
     const ctx = getAudioContext();
     if (!ctx) return;
     try {
+      if (ctx.state === 'suspended') ctx.resume();
       const now = ctx.currentTime;
       const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
       notes.forEach((freq, i) => {
@@ -120,8 +129,8 @@ export const AudioService = {
     const ctx = getAudioContext();
     if (!ctx) return;
     try {
+      if (ctx.state === 'suspended') ctx.resume();
       const now = ctx.currentTime;
-      // Rich Tibetan singing bowl / crystal bell emulation
       const freqs = [587.33, 880, 1174.66, 1760]; // D5, A5, D6, A6
       freqs.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
@@ -146,6 +155,7 @@ export const AudioService = {
     const ctx = getAudioContext();
     if (!ctx) return;
     try {
+      if (ctx.state === 'suspended') ctx.resume();
       const now = ctx.currentTime;
       const freqs = [440, 554.37, 659.25]; // A major
       freqs.forEach((freq, i) => {
@@ -171,6 +181,7 @@ export const AudioService = {
     const ctx = getAudioContext();
     if (!ctx) return;
     try {
+      if (ctx.state === 'suspended') ctx.resume();
       const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -194,17 +205,23 @@ export const AudioService = {
     this.playAlert();
   },
 
-  // Ambient focus soundscapes
-  startAmbient(type: 'none' | 'binaural' | 'rain' | 'whitenoise' | 'lofi' | 'space' | 'stream' | 'waves', volume: number = 0.4): void {
+  // Ambient focus soundscapes (Synthesized Zero-Bandwidth Audio)
+  startAmbient(type: 'none' | 'binaural' | 'rain' | 'whitenoise' | 'lofi' | 'space' | 'stream' | 'waves', volume: number = 0.5): void {
     this.stopAmbient();
     if (type === 'none') return;
 
     const ctx = getAudioContext();
     if (!ctx) return;
 
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
     try {
       const masterGain = ctx.createGain();
-      masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, volume * 0.3)), ctx.currentTime);
+      // Scaled for comfortable listening on mobile speakers and headphones
+      const safeVolume = Math.max(0.05, Math.min(1, volume)) * 0.75;
+      masterGain.gain.setValueAtTime(safeVolume, ctx.currentTime);
       masterGain.connect(ctx.destination);
 
       activeAmbient = {
@@ -212,142 +229,281 @@ export const AudioService = {
         nodes: [],
         gainNode: masterGain,
         isPlaying: true,
+        intervalIds: [],
       };
 
       if (type === 'binaural') {
-        // 40Hz Gamma Beat (Deep Focus): 200Hz Left, 240Hz Right
-        const merger = ctx.createChannelMerger(2);
-        
-        const oscL = ctx.createOscillator();
-        oscL.type = 'sine';
-        oscL.frequency.setValueAtTime(200, ctx.currentTime);
-        
-        const oscR = ctx.createOscillator();
-        oscR.type = 'sine';
-        oscR.frequency.setValueAtTime(240, ctx.currentTime);
-
-        const gainL = ctx.createGain();
-        const gainR = ctx.createGain();
-        gainL.gain.value = 0.5;
-        gainR.gain.value = 0.5;
-
-        oscL.connect(gainL);
-        oscR.connect(gainR);
-        gainL.connect(merger, 0, 0);
-        gainR.connect(merger, 0, 1);
-
-        merger.connect(masterGain);
-        oscL.start();
-        oscR.start();
-
-        activeAmbient.nodes.push(oscL, oscR, gainL, gainR, merger);
-      } else if (type === 'whitenoise' || type === 'rain' || type === 'stream') {
-        // Buffer-based noise generator with filter
-        const bufferSize = ctx.sampleRate * 2;
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const output = buffer.getChannelData(0);
-        
-        let lastOut = 0.0;
-        for (let i = 0; i < bufferSize; i++) {
-          if (type === 'rain' || type === 'stream') {
-            // Pink/brown noise
-            const white = Math.random() * 2 - 1;
-            output[i] = (lastOut + 0.02 * white) / 1.02;
-            lastOut = output[i];
-            output[i] *= 3.5;
-          } else {
-            // White noise
-            output[i] = Math.random() * 2 - 1;
-          }
-        }
-
-        const whiteNoise = ctx.createBufferSource();
-        whiteNoise.buffer = buffer;
-        whiteNoise.loop = true;
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = type === 'rain' ? 'lowpass' : type === 'stream' ? 'bandpass' : 'bandpass';
-        filter.frequency.setValueAtTime(type === 'rain' ? 800 : type === 'stream' ? 1000 : 1200, ctx.currentTime);
-        filter.Q.setValueAtTime(type === 'stream' ? 1.5 : 1, ctx.currentTime);
-
-        whiteNoise.connect(filter);
-        filter.connect(masterGain);
-        whiteNoise.start();
-
-        activeAmbient.nodes.push(whiteNoise, filter);
-      } else if (type === 'space' || type === 'lofi') {
-        // Deep space drone / warm lofi chords
-        const baseFreq = type === 'space' ? 65.41 : 130.81; // C2 or C3
+        // 40Hz Gamma Wave Focus: 432Hz Fundamental Carrier + 472Hz Gamma (40Hz differential) + Warm Sub-harmonic
         const osc1 = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
-        const filter = ctx.createBiquadFilter();
+        const subOsc = ctx.createOscillator();
         
-        osc1.type = 'triangle';
-        osc1.frequency.setValueAtTime(baseFreq, ctx.currentTime);
-        
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(baseFreq * 1.5, ctx.currentTime); // Perfect fifth
-        
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(type === 'space' ? 180 : 320, ctx.currentTime);
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(432, ctx.currentTime);
 
-        osc1.connect(filter);
-        osc2.connect(filter);
-        filter.connect(masterGain);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(472, ctx.currentTime);
+
+        subOsc.type = 'triangle';
+        subOsc.frequency.setValueAtTime(216, ctx.currentTime);
+
+        const gain1 = ctx.createGain();
+        const gain2 = ctx.createGain();
+        const subGain = ctx.createGain();
+
+        gain1.gain.setValueAtTime(0.35, ctx.currentTime);
+        gain2.gain.setValueAtTime(0.35, ctx.currentTime);
+        subGain.gain.setValueAtTime(0.2, ctx.currentTime);
+
+        const merger = ctx.createChannelMerger(2);
+        osc1.connect(gain1);
+        gain1.connect(merger, 0, 0);
+
+        osc2.connect(gain2);
+        gain2.connect(merger, 0, 1);
+
+        subOsc.connect(subGain);
+        subGain.connect(masterGain);
+        merger.connect(masterGain);
 
         osc1.start();
         osc2.start();
+        subOsc.start();
 
-        activeAmbient.nodes.push(osc1, osc2, filter);
+        activeAmbient.nodes.push(osc1, osc2, subOsc, gain1, gain2, subGain, merger);
+      } else if (type === 'lofi') {
+        // Lo-Fi Study Chords Progression (Dm9 -> G13 -> Cmaj9 -> Am9)
+        const chordProgressions = [
+          [293.66, 349.23, 440.0, 523.25, 659.25], // Dm9 (D4, F4, A4, C5, E5)
+          [392.0, 493.88, 587.33, 659.25, 783.99], // G13 (G4, B4, D5, E5, G5)
+          [261.63, 329.63, 392.0, 493.88, 587.33], // Cmaj9 (C4, E4, G4, B4, D5)
+          [220.0, 261.63, 329.63, 392.0, 493.88],  // Am9 (A3, C4, E4, G4, B4)
+        ];
+
+        let chordIndex = 0;
+
+        const playChord = () => {
+          if (!activeAmbient.isPlaying || activeAmbient.type !== 'lofi' || !audioCtx) return;
+          const currentCtx = audioCtx;
+          const chord = chordProgressions[chordIndex % chordProgressions.length];
+          chordIndex++;
+
+          chord.forEach((freq, idx) => {
+            const osc = currentCtx.createOscillator();
+            const noteGain = currentCtx.createGain();
+            const filter = currentCtx.createBiquadFilter();
+
+            osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+            osc.frequency.setValueAtTime(freq, currentCtx.currentTime);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(650, currentCtx.currentTime);
+
+            noteGain.gain.setValueAtTime(0.001, currentCtx.currentTime);
+            noteGain.gain.linearRampToValueAtTime(0.06, currentCtx.currentTime + 0.4);
+            noteGain.gain.exponentialRampToValueAtTime(0.001, currentCtx.currentTime + 3.8);
+
+            osc.connect(filter);
+            filter.connect(noteGain);
+            noteGain.connect(masterGain);
+
+            osc.start(currentCtx.currentTime);
+            osc.stop(currentCtx.currentTime + 3.9);
+          });
+        };
+
+        // Vinyl Warm Crackle/Noise
+        const bufferSize = ctx.sampleRate * 2;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * 0.015;
+          if (Math.random() < 0.0008) {
+            data[i] += (Math.random() * 2 - 1) * 0.35; // Vinyl pop
+          }
+        }
+        const vinylNoise = ctx.createBufferSource();
+        vinylNoise.buffer = buffer;
+        vinylNoise.loop = true;
+        const vinylFilter = ctx.createBiquadFilter();
+        vinylFilter.type = 'bandpass';
+        vinylFilter.frequency.setValueAtTime(1400, ctx.currentTime);
+        vinylNoise.connect(vinylFilter);
+        vinylFilter.connect(masterGain);
+        vinylNoise.start();
+
+        activeAmbient.nodes.push(vinylNoise, vinylFilter);
+
+        // Start first chord immediately & loop every 4s
+        playChord();
+        const chordTimer = window.setInterval(playChord, 4000);
+        activeAmbient.intervalIds.push(chordTimer);
+      } else if (type === 'rain') {
+        // Soothing Rain (Multi-layer Pink noise + High resonance drop generator)
+        const bufferSize = ctx.sampleRate * 2;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = buffer.getChannelData(0);
+        
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          b3 = 0.86650 * b3 + white * 0.3104856;
+          b4 = 0.55000 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.0168980;
+          output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.12;
+          b6 = white * 0.115926;
+        }
+
+        const rainNoise = ctx.createBufferSource();
+        rainNoise.buffer = buffer;
+        rainNoise.loop = true;
+
+        const rainFilter = ctx.createBiquadFilter();
+        rainFilter.type = 'lowpass';
+        rainFilter.frequency.setValueAtTime(1100, ctx.currentTime);
+
+        rainNoise.connect(rainFilter);
+        rainFilter.connect(masterGain);
+        rainNoise.start();
+
+        activeAmbient.nodes.push(rainNoise, rainFilter);
       } else if (type === 'waves') {
-        // Ocean swell: modulated noise with LFO
+        // Rhythmic Ocean Surf (Dual LFO Modulated Pink Noise)
+        const bufferSize = ctx.sampleRate * 2;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = buffer.getChannelData(0);
+        let lastOut = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          output[i] = (lastOut + 0.02 * white) / 1.02;
+          lastOut = output[i];
+          output[i] *= 2.8;
+        }
+
+        const surfSource = ctx.createBufferSource();
+        surfSource.buffer = buffer;
+        surfSource.loop = true;
+
+        const waveFilter = ctx.createBiquadFilter();
+        waveFilter.type = 'lowpass';
+        waveFilter.frequency.setValueAtTime(450, ctx.currentTime);
+        waveFilter.Q.setValueAtTime(2.0, ctx.currentTime);
+
+        const lfo = ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(0.12, ctx.currentTime); // ~8.3s wave swell cycle
+
+        const lfoGain = ctx.createGain();
+        lfoGain.gain.setValueAtTime(380, ctx.currentTime);
+
+        lfo.connect(lfoGain);
+        lfoGain.connect(waveFilter.frequency);
+
+        surfSource.connect(waveFilter);
+        waveFilter.connect(masterGain);
+
+        surfSource.start();
+        lfo.start();
+
+        activeAmbient.nodes.push(surfSource, waveFilter, lfo, lfoGain);
+      } else if (type === 'whitenoise') {
+        // Smooth White / Pink Noise Bed
         const bufferSize = ctx.sampleRate * 2;
         const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
         const output = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) {
-          output[i] = Math.random() * 2 - 1;
+          output[i] = (Math.random() * 2 - 1) * 0.5;
         }
 
         const noise = ctx.createBufferSource();
         noise.buffer = buffer;
         noise.loop = true;
 
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(400, ctx.currentTime);
+        const noiseFilter = ctx.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.setValueAtTime(1200, ctx.currentTime);
+        noiseFilter.Q.setValueAtTime(0.6, ctx.currentTime);
 
-        const lfo = ctx.createOscillator();
-        lfo.type = 'sine';
-        lfo.frequency.setValueAtTime(0.1, ctx.currentTime); // 10s wave cycle
-
-        const lfoGain = ctx.createGain();
-        lfoGain.gain.setValueAtTime(300, ctx.currentTime);
-
-        lfo.connect(lfoGain);
-        lfoGain.connect(filter.frequency);
-
-        noise.connect(filter);
-        filter.connect(masterGain);
-
+        noise.connect(noiseFilter);
+        noiseFilter.connect(masterGain);
         noise.start();
-        lfo.start();
 
-        activeAmbient.nodes.push(noise, filter, lfo, lfoGain);
+        activeAmbient.nodes.push(noise, noiseFilter);
+      } else if (type === 'space') {
+        // Celestial Deep Space Drone (Warm Detuned Layered Chords)
+        const notes = [130.81, 196.0, 261.63, 329.63]; // C3, G3, C4, E4
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const filter = ctx.createBiquadFilter();
+
+          osc.type = idx % 2 === 0 ? 'triangle' : 'sine';
+          osc.frequency.setValueAtTime(freq + (idx * 0.3), ctx.currentTime); // Subtle chorus detune
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(320, ctx.currentTime);
+
+          gain.gain.setValueAtTime(0.25, ctx.currentTime);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(masterGain);
+          osc.start();
+
+          activeAmbient.nodes.push(osc, filter, gain);
+        });
+      } else if (type === 'stream') {
+        // Mountain Stream / Babbling Brook
+        const bufferSize = ctx.sampleRate * 2;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = (Math.random() * 2 - 1) * 0.4;
+        }
+
+        const streamSource = ctx.createBufferSource();
+        streamSource.buffer = buffer;
+        streamSource.loop = true;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1400, ctx.currentTime);
+        filter.Q.setValueAtTime(2.2, ctx.currentTime);
+
+        streamSource.connect(filter);
+        filter.connect(masterGain);
+        streamSource.start();
+
+        activeAmbient.nodes.push(streamSource, filter);
       }
     } catch (e) {
-      console.error('Ambient audio error:', e);
+      console.error('Ambient audio startup error:', e);
     }
   },
 
   setAmbientVolume(volume: number): void {
     if (activeAmbient.gainNode && audioCtx) {
-      const safeVol = Math.max(0, Math.min(1, volume * 0.3));
-      activeAmbient.gainNode.gain.setValueAtTime(safeVol, audioCtx.currentTime);
+      const safeVolume = Math.max(0, Math.min(1, volume)) * 0.75;
+      activeAmbient.gainNode.gain.setValueAtTime(safeVolume, audioCtx.currentTime);
     }
   },
 
+  isAmbientPlaying(): boolean {
+    return activeAmbient.isPlaying && activeAmbient.type !== 'none';
+  },
+
+  getActiveAmbientType(): string {
+    return activeAmbient.type;
+  },
+
   stopAmbient(): void {
-    if (activeAmbient.isPlaying) {
+    if (activeAmbient.isPlaying || activeAmbient.nodes.length > 0) {
+      // Clear any chord timers
+      activeAmbient.intervalIds.forEach((id) => clearInterval(id));
+
       activeAmbient.nodes.forEach((node) => {
         try {
           if (typeof node === 'number') {
@@ -364,11 +520,13 @@ export const AudioService = {
           // ignore
         }
       });
+
       activeAmbient = {
         type: 'none',
         nodes: [],
         gainNode: null,
         isPlaying: false,
+        intervalIds: [],
       };
     }
   },

@@ -331,5 +331,43 @@ export interface AndroidSystemStatus {
   foregroundServiceRunning: boolean;
 }
 
+export interface SyllabusModule {
+  unitNumber?: number;
+  unitTitle: string;
+  topics: string[];
+  estimatedHours?: number;
+  weightagePercentage?: number;
+  difficulty?: 'Easy' | 'Medium' | 'Hard';
+}
+
+export interface GeneratedSyllabusTask {
+  id: string;
+  title: string;
+  category: TaskCategory;
+  priority: Priority;
+  dueDate: string; // YYYY-MM-DD
+  dueTime?: string;
+  estimatedMinutes: number;
+  subject: string;
+  moduleName?: string;
+  notes?: string;
+  subtasks: { id: string; title: string; completed: boolean }[];
+  selected?: boolean;
+}
+
+export interface SyllabusImportResult {
+  subject: string;
+  courseCode?: string;
+  overview: string;
+  totalEstimatedHours: number;
+  modules: SyllabusModule[];
+  tasks: GeneratedSyllabusTask[];
+  studyPlan?: StudyPlan;
+  isFallback?: boolean;
+  modelUsed?: string;
+  errorNotice?: string;
+}
+
+
 
 

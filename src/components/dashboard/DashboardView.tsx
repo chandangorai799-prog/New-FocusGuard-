@@ -35,6 +35,7 @@ interface DashboardViewProps {
   onToggleTask: (taskId: string) => void;
   onOpenThemeModal?: () => void;
   onSelectTheme?: (themeId: string, customAccent?: string) => void;
+  onOpenSyllabusImport?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -48,6 +49,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onToggleTask,
   onOpenThemeModal,
   onSelectTheme,
+  onOpenSyllabusImport,
 }) => {
   // Time-aware greeting
   const getGreeting = () => {
@@ -360,7 +362,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* AI Shortcuts Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+        {/* AI Syllabus to Tasks Shortcut */}
+        <button
+          id="shortcut-ai-syllabus"
+          onClick={() => {
+            AudioService.playTap();
+            if (onOpenSyllabusImport) {
+              onOpenSyllabusImport();
+            } else {
+              onNavigateToTab('tasks');
+            }
+          }}
+          className="w-full p-3.5 rounded-2xl bg-gradient-to-br from-indigo-950/80 to-purple-950/50 hover:from-indigo-900/90 hover:to-purple-900/60 border border-indigo-700/50 hover:border-indigo-500/80 transition flex items-center space-x-3 text-left group cursor-pointer shadow-md shadow-indigo-950/40"
+        >
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+            <Sparkles className="w-5 h-5 text-indigo-300" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h4 className="text-xs font-bold text-white truncate">Import Syllabus</h4>
+            <p className="text-[11px] text-indigo-200/80 truncate">PDF to AI Tasks</p>
+          </div>
+        </button>
+
         {/* AI Study Planner Shortcut */}
         <button
           id="shortcut-ai-planner"

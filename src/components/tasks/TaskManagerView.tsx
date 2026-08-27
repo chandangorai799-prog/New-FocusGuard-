@@ -16,6 +16,11 @@ import {
   Search,
   Check,
   X,
+  Sparkles,
+  FileText,
+  ListTodo,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { TaskItem, TaskCategory, TaskPriority } from '../../types';
 import { AudioService } from '../../services/audioService';
@@ -28,6 +33,7 @@ interface TaskManagerViewProps {
   onDeleteTask: (id: string) => void;
   onToggleTask: (id: string) => void;
   onStartFocusForTask: (task: TaskItem) => void;
+  onOpenSyllabusImport?: () => void;
 }
 
 export const TaskManagerView: React.FC<TaskManagerViewProps> = ({
@@ -37,11 +43,13 @@ export const TaskManagerView: React.FC<TaskManagerViewProps> = ({
   onDeleteTask,
   onToggleTask,
   onStartFocusForTask,
+  onOpenSyllabusImport,
 }) => {
   const [filter, setFilter] = useState<'all' | 'today' | 'upcoming' | 'completed' | 'high'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'title'>('dueDate');
+  const [expandedSubtaskMap, setExpandedSubtaskMap] = useState<Record<string, boolean>>({});
 
   // Modal / Form state
   const [showModal, setShowModal] = useState<boolean>(false);
@@ -168,8 +176,8 @@ export const TaskManagerView: React.FC<TaskManagerViewProps> = ({
 
   return (
     <div className="space-y-5 pb-12">
-      {/* Top Header & New Task Button */}
-      <div className="flex items-center justify-between">
+      {/* Top Header & Action Buttons */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             Task Manager
@@ -177,14 +185,31 @@ export const TaskManagerView: React.FC<TaskManagerViewProps> = ({
           <p className="text-xs text-slate-400">Organize assignments, syllabus items & study goals</p>
         </div>
 
-        <button
-          id="btn-add-new-task"
-          onClick={openNewTaskModal}
-          className="flex items-center space-x-1.5 px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition transform active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Task</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {onOpenSyllabusImport && (
+            <button
+              id="btn-import-syllabus-pdf"
+              type="button"
+              onClick={() => {
+                AudioService.playTap();
+                onOpenSyllabusImport();
+              }}
+              className="flex items-center space-x-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-indigo-600/80 to-violet-600/80 hover:from-indigo-600 hover:to-violet-600 text-white text-xs font-bold shadow-md shadow-indigo-600/25 border border-indigo-400/30 transition transform active:scale-95 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-indigo-200" />
+              <span>Import Syllabus PDF</span>
+            </button>
+          )}
+
+          <button
+            id="btn-add-new-task"
+            onClick={openNewTaskModal}
+            className="flex items-center space-x-1.5 px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition transform active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Task</span>
+          </button>
+        </div>
       </div>
 
       {/* Search & Filter Bar */}
@@ -247,123 +272,181 @@ export const TaskManagerView: React.FC<TaskManagerViewProps> = ({
       {/* Task List */}
       <div className="space-y-2.5">
         {sortedTasks.length === 0 ? (
-          <div className="text-center py-12 bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-2">
+          <div className="text-center py-12 bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-3">
             <CheckCircle2 className="w-10 h-10 text-slate-600 mx-auto" />
-            <p className="text-xs font-bold text-white">No tasks match your criteria</p>
-            <p className="text-[11px] text-slate-400">Add a new study task to stay on track.</p>
+            <div>
+              <p className="text-xs font-bold text-white">No tasks match your criteria</p>
+              <p className="text-[11px] text-slate-400">Add a new study task or import your course syllabus PDF to auto-generate tasks.</p>
+            </div>
+
+            {onOpenSyllabusImport && (
+              <button
+                type="button"
+                onClick={() => {
+                  AudioService.playTap();
+                  onOpenSyllabusImport();
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-semibold shadow-md hover:from-indigo-500 hover:to-violet-500 transition cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-indigo-200" />
+                <span>Import Syllabus PDF & Auto-Schedule</span>
+              </button>
+            )}
           </div>
         ) : (
-          sortedTasks.map((task) => (
-            <motion.div
-              key={task.id}
-              layout
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 group ${
-                task.completed
-                  ? 'bg-slate-950/40 border-slate-900 opacity-60'
-                  : 'bg-slate-900/90 hover:bg-slate-850 border-slate-800/80 shadow-sm'
-              }`}
-            >
-              {/* Checkbox & Details */}
-              <div className="flex items-start space-x-3 min-w-0 flex-1">
-                <button
-                  type="button"
-                  onClick={() => onToggleTask(task.id)}
-                  className="mt-0.5 text-slate-400 hover:text-blue-400 shrink-0 transition"
-                >
-                  {task.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-slate-500" />
-                  )}
-                </button>
+          sortedTasks.map((task) => {
+            const hasSubtasks = Array.isArray(task.subtasks) && task.subtasks.length > 0;
+            const isSubtasksOpen = !!expandedSubtaskMap[task.id];
 
-                <div className="min-w-0 space-y-1">
-                  <p
-                    className={`text-xs font-bold truncate ${
-                      task.completed ? 'line-through text-slate-500' : 'text-white'
-                    }`}
-                  >
-                    {task.title}
-                  </p>
+            return (
+              <motion.div
+                key={task.id}
+                layout
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`p-3.5 rounded-2xl border transition flex flex-col gap-2.5 group ${
+                  task.completed
+                    ? 'bg-slate-950/40 border-slate-900 opacity-60'
+                    : 'bg-slate-900/90 hover:bg-slate-850 border-slate-800/80 shadow-sm'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  {/* Checkbox & Details */}
+                  <div className="flex items-start space-x-3 min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => onToggleTask(task.id)}
+                      className="mt-0.5 text-slate-400 hover:text-blue-400 shrink-0 transition"
+                    >
+                      {task.completed ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-slate-500" />
+                      )}
+                    </button>
 
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
-                    <span className="px-2 py-0.2 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
-                      {task.category}
-                    </span>
+                    <div className="min-w-0 space-y-1">
+                      <p
+                        className={`text-xs font-bold truncate ${
+                          task.completed ? 'line-through text-slate-500' : 'text-white'
+                        }`}
+                      >
+                        {task.title}
+                      </p>
 
-                    {task.subject && (
-                      <span className="text-blue-400 font-semibold">{task.subject}</span>
-                    )}
+                      <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
+                        <span className="px-2 py-0.2 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                          {task.category}
+                        </span>
 
-                    {task.dueDate && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-slate-500" />
-                        {task.dueDate} {task.dueTime && `at ${task.dueTime}`}
-                      </span>
-                    )}
+                        {task.subject && (
+                          <span className="text-blue-400 font-semibold">{task.subject}</span>
+                        )}
 
-                    {task.estimatedMinutes && (
-                      <span className="flex items-center gap-1 text-slate-400">
-                        <Clock className="w-3 h-3 text-slate-500" />
-                        {task.estimatedMinutes}m est.
-                      </span>
-                    )}
+                        {task.dueDate && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-slate-500" />
+                            {task.dueDate} {task.dueTime && `at ${task.dueTime}`}
+                          </span>
+                        )}
+
+                        {task.estimatedMinutes && (
+                          <span className="flex items-center gap-1 text-slate-400">
+                            <Clock className="w-3 h-3 text-slate-500" />
+                            {task.estimatedMinutes}m est.
+                          </span>
+                        )}
+                      </div>
+
+                      {task.notes && (
+                        <p className="text-[11px] text-slate-400 line-clamp-1 italic">{task.notes}</p>
+                      )}
+                    </div>
                   </div>
 
-                  {task.notes && (
-                    <p className="text-[11px] text-slate-400 line-clamp-1 italic">{task.notes}</p>
-                  )}
+                  {/* Actions & Priority */}
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    {!task.completed && (
+                      <button
+                        onClick={() => onStartFocusForTask(task)}
+                        className="p-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                        title="Launch Focus Session for this task"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-blue-400" />
+                        <span className="hidden sm:inline text-[11px]">Focus</span>
+                      </button>
+                    )}
+
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        task.priority === 'High'
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : task.priority === 'Medium'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {task.priority}
+                    </span>
+
+                    <button
+                      onClick={() => openEditTaskModal(task)}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition"
+                      title="Edit Task"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        AudioService.playTap();
+                        onDeleteTask(task.id);
+                      }}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition"
+                      title="Delete Task"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Actions & Priority */}
-              <div className="flex items-center space-x-1.5 shrink-0">
-                {!task.completed && (
-                  <button
-                    onClick={() => onStartFocusForTask(task)}
-                    className="p-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center gap-1 transition"
-                    title="Launch Focus Session for this task"
-                  >
-                    <Zap className="w-3.5 h-3.5 text-blue-400" />
-                    <span className="hidden sm:inline text-[11px]">Focus</span>
-                  </button>
+                {/* Optional Subtasks Dropdown */}
+                {hasSubtasks && (
+                  <div className="pt-1 border-t border-slate-800/60">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedSubtaskMap((prev) => ({
+                          ...prev,
+                          [task.id]: !prev[task.id],
+                        }))
+                      }
+                      className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                    >
+                      <ListTodo className="w-3 h-3" />
+                      <span>{task.subtasks?.length} Subtasks Checklist</span>
+                      {isSubtasksOpen ? (
+                        <ChevronUp className="w-3 h-3" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" />
+                      )}
+                    </button>
+
+                    {isSubtasksOpen && (
+                      <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-indigo-500/40 py-1">
+                        {task.subtasks?.map((st, sIdx) => (
+                          <div key={st.id || sIdx} className="text-xs text-slate-300 flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                            <span>{st.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
-
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    task.priority === 'High'
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                      : task.priority === 'Medium'
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  {task.priority}
-                </span>
-
-                <button
-                  onClick={() => openEditTaskModal(task)}
-                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition"
-                  title="Edit Task"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    AudioService.playTap();
-                    onDeleteTask(task.id);
-                  }}
-                  className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition"
-                  title="Delete Task"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </motion.div>
-          ))
+              </motion.div>
+            );
+          })
         )}
       </div>
 

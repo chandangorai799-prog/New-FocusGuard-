@@ -14,6 +14,7 @@ import { DistractionShieldModal } from './components/common/DistractionShieldMod
 import { NotificationsModal } from './components/common/NotificationsModal';
 import { PwaInstallBanner } from './components/common/PwaInstallBanner';
 import { ThemeCustomizerModal } from './components/common/ThemeCustomizerModal';
+import { SyllabusPdfImportModal } from './components/common/SyllabusPdfImportModal';
 
 // Views
 import { DashboardView } from './components/dashboard/DashboardView';
@@ -44,6 +45,7 @@ export default function App() {
   const [showShieldModal, setShowShieldModal] = useState<boolean>(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
   const [showThemeModal, setShowThemeModal] = useState<boolean>(false);
+  const [showSyllabusImportModal, setShowSyllabusImportModal] = useState<boolean>(false);
   const [isFocusSessionActive, setIsFocusSessionActive] = useState<boolean>(false);
   const [focusInitialDuration, setFocusInitialDuration] = useState<number | undefined>(undefined);
 
@@ -222,6 +224,26 @@ export default function App() {
   const handleImportPlanTasks = (newTasks: Omit<TaskItem, 'id' | 'createdAt'>[]) => {
     newTasks.forEach((t) => StorageService.addTask(t));
     setTasks(StorageService.getTasks());
+  };
+
+  const handleImportSyllabusTasks = (newTasks: TaskItem[]) => {
+    const current = StorageService.getTasks();
+    const updated = [...newTasks, ...current];
+    StorageService.saveTasks(updated);
+    setTasks(updated);
+
+    // Award bonus XP for syllabus processing
+    StorageService.addXP(60);
+    setProfile(StorageService.getProfile());
+
+    // Add in-app notification
+    StorageService.addNotification({
+      title: 'Syllabus Tasks Generated! 📚',
+      message: `Added ${newTasks.length} structured study tasks from your syllabus to your task manager.`,
+      type: 'task',
+    });
+    setNotifications(StorageService.getNotifications());
+    AudioService.playSuccess();
   };
 
   // Chat Assistant Handlers
@@ -420,6 +442,7 @@ export default function App() {
                   onToggleTask={handleToggleTask}
                   onOpenThemeModal={() => setShowThemeModal(true)}
                   onSelectTheme={handleSelectTheme}
+                  onOpenSyllabusImport={() => setShowSyllabusImportModal(true)}
                 />
               )}
 
@@ -454,6 +477,7 @@ export default function App() {
                   onDeletePlan={handleDeletePlan}
                   onTogglePlanTask={handleTogglePlanTask}
                   onImportToTasks={handleImportPlanTasks}
+                  onOpenSyllabusImport={() => setShowSyllabusImportModal(true)}
                 />
               )}
 
@@ -474,6 +498,7 @@ export default function App() {
                   onDeleteTask={handleDeleteTask}
                   onToggleTask={handleToggleTask}
                   onStartFocusForTask={handleStartFocusForTask}
+                  onOpenSyllabusImport={() => setShowSyllabusImportModal(true)}
                 />
               )}
 
@@ -558,6 +583,14 @@ export default function App() {
           currentThemeId={profile.theme || 'midnight'}
           customAccentColor={profile.customThemeColor}
           onSelectTheme={handleSelectTheme}
+        />
+
+        {/* AI Syllabus PDF to Tasks Import Modal */}
+        <SyllabusPdfImportModal
+          isOpen={showSyllabusImportModal}
+          onClose={() => setShowSyllabusImportModal(false)}
+          onImportTasks={handleImportSyllabusTasks}
+          onSaveStudyPlan={handleAddPlan}
         />
       </div>
     </div>

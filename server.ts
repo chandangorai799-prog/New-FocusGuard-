@@ -33,16 +33,14 @@ function getGeminiClient(): GoogleGenAI | null {
 
 // Resilient multi-model fallback list in priority order
 const CANDIDATE_MODELS = [
-  "gemini-2.5-flash",
   "gemini-3.7-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
+  "gemini-2.5-flash",
 ];
 
 async function generateContentWithRetryAndFallback(
   ai: GoogleGenAI,
   params: {
-    contents: string;
+    contents: any;
     config?: {
       responseMimeType?: string;
       systemInstruction?: string;
@@ -481,6 +479,379 @@ Answer clearly, encourage active recall, give structured bullet points, and offe
     });
   }
 });
+
+// AI Syllabus to Tasks Generator Endpoint (Multimodal PDF + Text Syllabus)
+app.post("/api/ai/syllabus-to-tasks", async (req, res) => {
+  try {
+    const {
+      pdfBase64,
+      mimeType,
+      text,
+      studentName,
+      subjectHint,
+      daysAvailable,
+      hoursPerDay,
+      difficulty,
+      examDate,
+    } = req.body;
+
+    const name = studentName || "Student";
+    const days = Number(daysAvailable || 14);
+    const hrs = Number(hoursPerDay || 3);
+    const diff = difficulty || "Intermediate";
+    const targetDate = examDate || `In ${days} days`;
+
+    if (!pdfBase64 && (!text || text.trim().length === 0)) {
+      return res.status(400).json({ error: "Please upload a syllabus PDF or provide syllabus text." });
+    }
+
+    const ai = getGeminiClient();
+
+    if (!ai) {
+      const fallbackResult = generateFallbackSyllabusTasks(
+        text || "",
+        subjectHint,
+        days,
+        hrs,
+        name,
+        diff,
+        targetDate
+      );
+      return res.json({
+        ...fallbackResult,
+        isFallback: true,
+        message: "Generated using built-in intelligent syllabus parser engine.",
+      });
+    }
+
+    const todayDate = new Date().toISOString().split("T")[0];
+
+    const promptInstructions = `You are FocusGuard's intelligent Academic Syllabus Deconstruction and Task Generator Engine.
+Your job is to read and analyze the provided syllabus (from PDF document or text) and transform it into a structured, highly actionable study roadmap and task list.
+
+Student Context:
+- Student Name: ${name}
+- Target/Exam Date: ${targetDate}
+- Total Days Available for Study: ${days} days
+- Daily Available Study Hours: ${hrs} hours/day
+- Target Academic Level: ${diff}
+- Starting Date for Schedule: ${todayDate}
+${subjectHint ? `- Subject Hint provided: ${subjectHint}` : ""}
+${text ? `\nExtracted Syllabus Text:\n"""\n${text}\n"""` : ""}
+
+Analyze the syllabus thoroughly. Identify:
+1. Exact Subject / Course Name & Code
+2. Overall Scope Summary
+3. All Units / Modules / Chapters with weightage and difficulty
+4. Concrete, granular study tasks (generate 6 to 14 sequential tasks) covering every major topic across the ${days} available days.
+
+Each task MUST have:
+- "title": Specific, descriptive title with Unit name (e.g., "Unit 1: Linear Data Structures - Arrays & Stacks Foundation")
+- "category": One of "Study", "Assignment", "Revision", "Project", "Exam Prep"
+- "priority": One of "High", "Medium", "Urgent", "Low"
+- "estimatedMinutes": Realistic study duration in minutes (e.g. 45, 60, 90, 120)
+- "dueDate": Calculated distributed calendar date in YYYY-MM-DD format (starting from today ${todayDate} and progressing across ${days} days)
+- "subject": Identified subject name
+- "moduleName": The unit/chapter name this task belongs to
+- "notes": High-yield takeaways, formulas, definitions, or exam cautions for this topic
+- "subtasks": An array of 3 to 4 actionable checklist steps (e.g., [{"id": "st-1", "title": "Read core theory & concepts", "completed": false}])
+
+Output ONLY valid JSON matching this exact schema:
+{
+  "subject": "Subject Name",
+  "courseCode": "Course Code or N/A",
+  "overview": "Comprehensive 2-3 sentence overview of the syllabus structure and key exam priorities.",
+  "totalEstimatedHours": ${days * hrs},
+  "modules": [
+    {
+      "unitNumber": 1,
+      "unitTitle": "Unit 1 Title",
+      "topics": ["Topic 1", "Topic 2", "Topic 3"],
+      "estimatedHours": 6,
+      "weightagePercentage": 20,
+      "difficulty": "Medium"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-syl-1",
+      "title": "Unit 1: ...",
+      "category": "Study",
+      "priority": "High",
+      "estimatedMinutes": 60,
+      "dueDate": "${todayDate}",
+      "subject": "Subject Name",
+      "moduleName": "Unit 1 Title",
+      "notes": "Key definitions and formulas to memorize",
+      "subtasks": [
+        { "id": "st-1-1", "title": "Read fundamental concepts and create 1-page notes", "completed": false },
+        { "id": "st-1-2", "title": "Solve 5 baseline practice problems", "completed": false },
+        { "id": "st-1-3", "title": "Self-test using active recall", "completed": false }
+      ]
+    }
+  ]
+}`;
+
+    const contents: any[] = [];
+    if (pdfBase64) {
+      contents.push({
+        inlineData: {
+          mimeType: mimeType || "application/pdf",
+          data: pdfBase64,
+        },
+      });
+    }
+    contents.push({
+      text: promptInstructions,
+    });
+
+    const { response, modelUsed } = await generateContentWithRetryAndFallback(ai, {
+      contents: contents.length === 1 ? contents[0].text : { parts: contents },
+      config: {
+        responseMimeType: "application/json",
+        systemInstruction: "You are FocusGuard's expert Academic Curriculum and Syllabus Parser. You deconstruct syllabi and structure them into high-impact student task schedules.",
+      },
+    });
+
+    const responseText = response.text || "{}";
+    const parsed = JSON.parse(responseText.trim());
+
+    // Ensure all tasks have unique IDs and proper dates
+    if (Array.isArray(parsed.tasks)) {
+      parsed.tasks = parsed.tasks.map((task: any, idx: number) => {
+        const dayOffset = Math.min(days - 1, Math.floor((idx / Math.max(1, parsed.tasks.length)) * days));
+        const targetDateObj = new Date();
+        targetDateObj.setDate(targetDateObj.getDate() + dayOffset);
+        const autoDueDate = targetDateObj.toISOString().split("T")[0];
+
+        return {
+          id: task.id || `task-syl-${Date.now()}-${idx}`,
+          title: task.title || `Study Task ${idx + 1}`,
+          category: task.category || "Study",
+          priority: task.priority || (idx < 2 ? "High" : "Medium"),
+          estimatedMinutes: Number(task.estimatedMinutes) || 45,
+          dueDate: task.dueDate || autoDueDate,
+          subject: task.subject || parsed.subject || subjectHint || "Study Course",
+          moduleName: task.moduleName || `Module ${Math.floor(idx / 2) + 1}`,
+          notes: task.notes || "Master core concepts and solve textbook problems.",
+          subtasks: Array.isArray(task.subtasks) && task.subtasks.length > 0
+            ? task.subtasks
+            : [
+                { id: `st-${idx}-1`, title: "Read core theory and synthesize definitions", completed: false },
+                { id: `st-${idx}-2`, title: "Solve practice questions and worked examples", completed: false },
+                { id: `st-${idx}-3`, title: "Review formula sheet & active recall", completed: false },
+              ],
+          selected: true,
+        };
+      });
+    }
+
+    return res.json({
+      subject: parsed.subject || subjectHint || "Imported Syllabus",
+      courseCode: parsed.courseCode,
+      overview: parsed.overview || "Syllabus parsed and task roadmap generated successfully.",
+      totalEstimatedHours: parsed.totalEstimatedHours || days * hrs,
+      modules: parsed.modules || [],
+      tasks: parsed.tasks || [],
+      isFallback: false,
+      modelUsed,
+    });
+  } catch (error: any) {
+    console.error("AI Syllabus to Tasks error:", error);
+    const {
+      text,
+      subjectHint,
+      daysAvailable,
+      hoursPerDay,
+      studentName,
+      difficulty,
+      examDate,
+    } = req.body;
+
+    const fallbackResult = generateFallbackSyllabusTasks(
+      text || "",
+      subjectHint,
+      Number(daysAvailable || 14),
+      Number(hoursPerDay || 3),
+      studentName || "Student",
+      difficulty || "Intermediate",
+      examDate
+    );
+
+    return res.json({
+      ...fallbackResult,
+      isFallback: true,
+      errorNotice: error.message || "AI parsing timed out; generated structured tasks using intelligent curriculum engine.",
+    });
+  }
+});
+
+// Helper: Fallback Syllabus to Tasks Generator
+function generateFallbackSyllabusTasks(
+  rawText: string,
+  subjectHint?: string,
+  daysAvailable: number = 14,
+  hoursPerDay: number = 3,
+  studentName: string = "Student",
+  difficulty: string = "Intermediate",
+  examDate?: string
+) {
+  const lines = rawText.split("\n").map((l) => l.trim()).filter(Boolean);
+
+  // Detect subject name
+  let detectedSubject = subjectHint || "Academic Syllabus Course";
+  for (const line of lines.slice(0, 8)) {
+    if (/^(Course|Subject|Module|Topic|Paper|Class)\s*[:\-]/i.test(line)) {
+      detectedSubject = line.replace(/^(Course|Subject|Module|Topic|Paper|Class)\s*[:\-]\s*/i, "").trim();
+      break;
+    } else if (line.length > 3 && line.length < 60 && !line.startsWith("-") && !line.startsWith("Unit")) {
+      detectedSubject = line;
+      break;
+    }
+  }
+
+  // Parse units/modules
+  interface ExtractedUnit {
+    title: string;
+    topics: string[];
+  }
+  const units: ExtractedUnit[] = [];
+  let currentUnit: ExtractedUnit | null = null;
+
+  for (const line of lines) {
+    const isUnitHeader = /^(Unit|Module|Chapter|Section|Part)\s*[0-9IVXLC]+\s*[:\-]/i.test(line) ||
+      /^Chapter\s+[0-9]+/i.test(line) ||
+      /^[0-9]+\.\s+[A-Z]/i.test(line);
+
+    if (isUnitHeader) {
+      if (currentUnit && (currentUnit.topics.length > 0 || currentUnit.title)) {
+        units.push(currentUnit);
+      }
+      currentUnit = {
+        title: line,
+        topics: [],
+      };
+    } else if (line.startsWith("-") || line.startsWith("•") || line.startsWith("*") || /^[a-z0-9]\)/i.test(line)) {
+      const cleanedTopic = line.replace(/^[\-\•\*\d\.\)\s]+/, "").trim();
+      if (cleanedTopic) {
+        if (!currentUnit) {
+          currentUnit = { title: "Unit 1: Core Syllabus Concepts", topics: [] };
+        }
+        currentUnit.topics.push(cleanedTopic);
+      }
+    } else if (currentUnit && line.length > 5) {
+      currentUnit.topics.push(line);
+    }
+  }
+
+  if (currentUnit) {
+    units.push(currentUnit);
+  }
+
+  // If no structured units detected, create default modules
+  if (units.length === 0) {
+    units.push(
+      { title: "Unit 1: Foundations & Core Principles", topics: ["Basic definitions", "Foundational theorems", "Core mechanisms"] },
+      { title: "Unit 2: Applied Methodologies & Problem Solving", topics: ["Standard problem models", "Worked examples", "Formula derivations"] },
+      { title: "Unit 3: Advanced Concepts & System Integration", topics: ["Complex multi-part questions", "Edge cases and boundary rules", "Case studies"] },
+      { title: "Unit 4: Exam Revision & Timed Practice", topics: ["Past paper drills", "Formula cheat sheet synthesis", "Mock tests"] }
+    );
+  }
+
+  const today = new Date();
+  const generatedTasks: any[] = [];
+  let taskCounter = 1;
+
+  units.forEach((unit, uIdx) => {
+    // Break each unit into 2-3 focused tasks (Theory/Concepts, Deep Problem Solving, Revision)
+    const unitTitleClean = unit.title.replace(/^(Unit|Module|Chapter|Section)\s*[0-9IVXLC]*\s*[:\-]?\s*/i, "").trim() || `Unit ${uIdx + 1}`;
+
+    // Task 1: Theory & Concept Mastery
+    const dayOffset1 = Math.min(daysAvailable - 1, Math.floor(((taskCounter - 1) / Math.max(1, units.length * 2)) * daysAvailable));
+    const dateObj1 = new Date(today);
+    dateObj1.setDate(dateObj1.getDate() + dayOffset1);
+
+    generatedTasks.push({
+      id: `task-syl-f-${taskCounter}`,
+      title: `Unit ${uIdx + 1}: ${unitTitleClean} - Theory & Core Concepts`,
+      category: "Study",
+      priority: uIdx === 0 ? "High" : "Medium",
+      estimatedMinutes: 60,
+      dueDate: dateObj1.toISOString().split("T")[0],
+      subject: detectedSubject,
+      moduleName: unit.title,
+      notes: unit.topics.slice(0, 4).join("; ") || "Master definitions and foundational principles.",
+      subtasks: [
+        { id: `st-${taskCounter}-1`, title: `Read theory notes for ${unitTitleClean}`, completed: false },
+        { id: `st-${taskCounter}-2`, title: "Highlight key formulas & make 1-page condensed summary", completed: false },
+        { id: `st-${taskCounter}-3`, title: "Self-test on core definitions with active recall", completed: false },
+      ],
+      selected: true,
+    });
+    taskCounter++;
+
+    // Task 2: Applied Practice & Problem Sets
+    const dayOffset2 = Math.min(daysAvailable - 1, Math.floor(((taskCounter - 1) / Math.max(1, units.length * 2)) * daysAvailable));
+    const dateObj2 = new Date(today);
+    dateObj2.setDate(dateObj2.getDate() + dayOffset2);
+
+    generatedTasks.push({
+      id: `task-syl-f-${taskCounter}`,
+      title: `Unit ${uIdx + 1}: ${unitTitleClean} - Practice Problems & Numerical Drills`,
+      category: uIdx % 2 === 0 ? "Assignment" : "Exam Prep",
+      priority: "High",
+      estimatedMinutes: 90,
+      dueDate: dateObj2.toISOString().split("T")[0],
+      subject: detectedSubject,
+      moduleName: unit.title,
+      notes: "Solve textbook problems and analyze error patterns.",
+      subtasks: [
+        { id: `st-${taskCounter}-1`, title: "Solve 5 standard textbook / lecture problems", completed: false },
+        { id: `st-${taskCounter}-2`, title: "Work through 2 advanced / past exam questions", completed: false },
+        { id: `st-${taskCounter}-3`, title: "Log any mistakes in your error notebook", completed: false },
+      ],
+      selected: true,
+    });
+    taskCounter++;
+  });
+
+  // Final Comprehensive Mock Exam / Revision Task
+  const finalDate = new Date(today);
+  finalDate.setDate(finalDate.getDate() + Math.max(0, daysAvailable - 1));
+  generatedTasks.push({
+    id: `task-syl-f-${taskCounter}`,
+    title: `Final Review: ${detectedSubject} - Timed Mock Exam Simulation`,
+    category: "Revision",
+    priority: "Urgent",
+    estimatedMinutes: 120,
+    dueDate: finalDate.toISOString().split("T")[0],
+    subject: detectedSubject,
+    moduleName: "Full Course Review",
+    notes: "Timed past-year question paper simulation without notes.",
+    subtasks: [
+      { id: `st-${taskCounter}-1`, title: "Review flashcards & master formula sheet", completed: false },
+      { id: `st-${taskCounter}-2`, title: "Simulate 1 full timed past exam paper", completed: false },
+      { id: `st-${taskCounter}-3`, title: "Review error log for high-yield correction points", completed: false },
+    ],
+    selected: true,
+  });
+
+  return {
+    subject: detectedSubject,
+    courseCode: "ACAD-101",
+    overview: `Syllabus structured across ${units.length} key modules and ${generatedTasks.length} sequential study tasks for ${studentName} covering ${daysAvailable} days.`,
+    totalEstimatedHours: daysAvailable * hoursPerDay,
+    modules: units.map((u, i) => ({
+      unitNumber: i + 1,
+      unitTitle: u.title,
+      topics: u.topics.slice(0, 6),
+      estimatedHours: Math.max(3, Math.round((daysAvailable * hoursPerDay) / units.length)),
+      weightagePercentage: Math.round(100 / units.length),
+      difficulty: i === 0 ? "Medium" : i === 1 ? "Hard" : "Medium",
+    })),
+    tasks: generatedTasks,
+  };
+}
 
 // Helper: Fallback Study Plan Generator
 function generateFallbackStudyPlan(

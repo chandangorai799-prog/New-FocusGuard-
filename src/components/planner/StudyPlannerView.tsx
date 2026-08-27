@@ -34,6 +34,7 @@ interface StudyPlannerViewProps {
   onDeletePlan: (id: string) => void;
   onTogglePlanTask: (planId: string, taskId: string) => void;
   onImportToTasks: (tasks: Omit<TaskItem, 'id' | 'createdAt'>[]) => void;
+  onOpenSyllabusImport?: () => void;
 }
 
 export const StudyPlannerView: React.FC<StudyPlannerViewProps> = ({
@@ -42,6 +43,7 @@ export const StudyPlannerView: React.FC<StudyPlannerViewProps> = ({
   onDeletePlan,
   onTogglePlanTask,
   onImportToTasks,
+  onOpenSyllabusImport,
 }) => {
   const safePlans = studyPlans || [];
   const [activeSubTab, setActiveSubTab] = useState<'create' | 'view'>('view');
@@ -199,34 +201,51 @@ export const StudyPlannerView: React.FC<StudyPlannerViewProps> = ({
           </p>
         </div>
 
-        <div className="flex p-1 bg-slate-900 border border-slate-800 rounded-2xl self-start sm:self-auto">
-          <button
-            onClick={() => {
-              AudioService.playTap();
-              setActiveSubTab('view');
-            }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
-              activeSubTab === 'view'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Schedules ({safePlans.length})
-          </button>
-          <button
-            onClick={() => {
-              AudioService.playTap();
-              setActiveSubTab('create');
-            }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
-              activeSubTab === 'create'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Plan My Study
-          </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {onOpenSyllabusImport && (
+            <button
+              id="btn-planner-import-syllabus-pdf"
+              type="button"
+              onClick={() => {
+                AudioService.playTap();
+                onOpenSyllabusImport();
+              }}
+              className="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center gap-1.5 border border-indigo-400/30 transition transform active:scale-95 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
+              <span>Import Syllabus PDF</span>
+            </button>
+          )}
+
+          <div className="flex p-1 bg-slate-900 border border-slate-800 rounded-2xl">
+            <button
+              onClick={() => {
+                AudioService.playTap();
+                setActiveSubTab('view');
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition ${
+                activeSubTab === 'view'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Schedules ({safePlans.length})
+            </button>
+            <button
+              onClick={() => {
+                AudioService.playTap();
+                setActiveSubTab('create');
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
+                activeSubTab === 'create'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Plan My Study
+            </button>
+          </div>
         </div>
       </div>
 
@@ -519,21 +538,40 @@ export const StudyPlannerView: React.FC<StudyPlannerViewProps> = ({
       {activeSubTab === 'view' && (
         <div className="space-y-6">
           {safePlans.length === 0 ? (
-            <div className="text-center py-12 bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-3">
+            <div className="text-center py-12 bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-4">
               <Calendar className="w-12 h-12 text-indigo-400 mx-auto opacity-60" />
-              <h3 className="text-sm font-bold text-white">No Study Plans Created Yet</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Generate a structured study timetable with daily session breakdowns and spaced repetition.
-              </p>
-              <button
-                onClick={() => {
-                  AudioService.playTap();
-                  setActiveSubTab('create');
-                }}
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-md shadow-indigo-600/30"
-              >
-                Plan My Study Now
-              </button>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-white">No Study Plans Created Yet</h3>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Import a syllabus PDF to automatically extract topics & milestones, or create a custom plan.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-2.5">
+                {onOpenSyllabusImport && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      AudioService.playTap();
+                      onOpenSyllabusImport();
+                    }}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold transition shadow-md shadow-indigo-600/30 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-indigo-200" />
+                    <span>Import Syllabus PDF</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    AudioService.playTap();
+                    setActiveSubTab('create');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition border border-slate-700"
+                >
+                  Create Plan Manually
+                </button>
+              </div>
             </div>
           ) : (
             <>

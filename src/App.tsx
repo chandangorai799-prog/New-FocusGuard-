@@ -15,6 +15,7 @@ import { NotificationsModal } from './components/common/NotificationsModal';
 import { PwaInstallBanner } from './components/common/PwaInstallBanner';
 import { ThemeCustomizerModal } from './components/common/ThemeCustomizerModal';
 import { SyllabusPdfImportModal } from './components/common/SyllabusPdfImportModal';
+import { SplashScreen } from './components/common/SplashScreen';
 
 // Views
 import { DashboardView } from './components/dashboard/DashboardView';
@@ -41,6 +42,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>(StorageService.getNotifications());
 
   // Modal States
+  const [showSplash, setShowSplash] = useState<boolean>(true);
   const [showOnboarding, setShowOnboarding] = useState<boolean>(!profile.onboardingCompleted);
   const [showShieldModal, setShowShieldModal] = useState<boolean>(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
@@ -592,6 +594,17 @@ export default function App() {
           onImportTasks={handleImportSyllabusTasks}
           onSaveStudyPlan={handleAddPlan}
         />
+
+        {/* FocusGuard App Startup Splash Screen */}
+        <AnimatePresence>
+          {showSplash && (
+            <SplashScreen
+              key="app-startup-splash"
+              onFinish={() => setShowSplash(false)}
+              durationMs={5000}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

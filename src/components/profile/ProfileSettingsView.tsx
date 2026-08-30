@@ -18,6 +18,10 @@ import {
   ExternalLink,
   Palette,
   SlidersHorizontal,
+  Code,
+  Building2,
+  Cpu,
+  Heart,
 } from 'lucide-react';
 import { UserProfile, FocusSettings, PomodoroSettings, StudyTimePreference } from '../../types';
 import { AudioService } from '../../services/audioService';
@@ -639,10 +643,101 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
         )}
       </div>
 
-      {/* App Version Info */}
-      <div className="text-center text-xs text-slate-500 space-y-1">
-        <p className="font-semibold">FocusGuard • Version 2.0.0 (Android Native Ready)</p>
-        <p className="text-[11px] break-words">Focus Better. Study Smarter. Built with Gemini AI & Modern React.</p>
+      {/* Developer & About Section */}
+      <div className="w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center">
+              <Code className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">About FocusGuard & Developer</h3>
+              <p className="text-[11px] text-slate-400">Engineering & product specifications</p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-full bg-blue-600/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold">
+            v1.0.0
+          </span>
+        </div>
+
+        {/* App & Developer Info Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {/* App Overview Card */}
+          <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-600/30 shrink-0">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-xs font-bold text-white">FocusGuard</h4>
+                <p className="text-[11px] text-blue-300 font-medium">AI-Powered Focus & Study Companion</p>
+              </div>
+            </div>
+
+            <div className="pt-1.5 border-t border-slate-800/60 space-y-1.5 text-[11px]">
+              <div className="flex items-center justify-between text-slate-400">
+                <span>App Name:</span>
+                <span className="font-semibold text-white">FocusGuard</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Version:</span>
+                <span className="font-mono text-emerald-400 font-semibold">1.0.0</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Tagline:</span>
+                <span className="text-slate-300 text-right truncate max-w-[170px]">AI-Powered Focus & Study Companion</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Developer Card */}
+          <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-600/30 shrink-0">
+                CG
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-xs font-bold text-white">Chandan Gorai</h4>
+                <p className="text-[11px] text-indigo-300 font-medium">CG Web Solutions</p>
+              </div>
+            </div>
+
+            <div className="pt-1.5 border-t border-slate-800/60 space-y-1.5 text-[11px]">
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Developed by:</span>
+                <span className="font-semibold text-white">Chandan Gorai</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Developer/Brand:</span>
+                <span className="font-semibold text-indigo-300">CG Web Solutions</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400">
+                <span>Architecture:</span>
+                <span className="text-slate-300">Gemini AI • React • PWA</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mission Statement / Feature Highlights */}
+        <div className="p-3 bg-slate-950/40 rounded-2xl border border-slate-800/60 text-[11px] text-slate-400 leading-relaxed">
+          <p>
+            <strong className="text-slate-200">FocusGuard</strong> by <strong className="text-indigo-300">CG Web Solutions</strong> helps students overcome digital distractions, master deep work cycles with intelligent timers, and turn syllabus documents into structured study schedules.
+          </p>
+        </div>
+      </div>
+
+      {/* App Version & Developer Footer Note */}
+      <div className="text-center text-xs text-slate-500 space-y-1.5 pt-1 pb-4">
+        <p className="font-semibold text-slate-400">
+          FocusGuard • Version 1.0.0
+        </p>
+        <p className="text-[11px] text-slate-400">
+          Developed by <span className="text-slate-200 font-semibold">Chandan Gorai</span> • <span className="text-indigo-300 font-medium">CG Web Solutions</span>
+        </p>
+        <p className="text-[10px] text-slate-600">
+          AI-Powered Focus & Study Companion
+        </p>
       </div>
     </div>
   );
